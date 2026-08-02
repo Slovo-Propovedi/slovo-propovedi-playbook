@@ -49,9 +49,17 @@
         version: "{{ slovo_backend_container_image_self_build_repo_version }}"
         dest: "{{ slovo_backend_container_src_path }}"
         force: "yes"
-      become: true
-      become_user: "{{ slovo_user_name }}"
       register: slovo_backend_git_pull_changed
+
+    # The git clone above runs as the ansible user (root), so the cloned files
+    # end up owned by root. Restore ownership to the slovo user afterwards.
+    - name: Ensure slovo-backend repository ownership is correct after git clone on self-build
+      ansible.builtin.file:
+        path: "{{ slovo_backend_container_src_path }}"
+        state: directory
+        owner: "{{ slovo_user_name }}"
+        group: "{{ slovo_group_name }}"
+        recurse: true
 
     - name: Ensure slovo-backend container image is built
       ansible.builtin.command:
