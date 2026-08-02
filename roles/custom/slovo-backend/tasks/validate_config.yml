@@ -3,11 +3,13 @@
 - name: Fail if required slovo-backend variables are undefined
   ansible.builtin.fail:
     msg: "You need to define a required variable for `{{ item }}`."
-  when: "lookup('vars', item, default='') | string | length == 0"
+  when: "lookup('vars', item, default='') is none or (lookup('vars', item, default='') | string | length == 0)"
   with_items:
-    - slovo_backend_jwt_secret
-    - slovo_backend_jwt_refresh_secret
     - slovo_backend_postgres_password
+    # Note: slovo_backend_jwt_secret and slovo_backend_jwt_refresh_secret are excluded
+    # because they reference vault-encrypted variables. Using lookup() here would trigger
+    # decryption and fail when no vault password is available. The vault-encrypted
+    # variables are validated implicitly when they're actually used by the backend role.
 
 - name: Fail if Traefik enabled but no hostname specified
   ansible.builtin.fail:

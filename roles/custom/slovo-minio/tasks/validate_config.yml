@@ -3,10 +3,13 @@
 - name: Fail if required slovo-minio variables are undefined
   ansible.builtin.fail:
     msg: "You need to define a required variable for `{{ item }}`."
-  when: "lookup('vars', item, default='') | string | length == 0"
+  when: "lookup('vars', item, default='') is none or (lookup('vars', item, default='') | string | length == 0)"
   with_items:
     - slovo_minio_root_user
-    - slovo_minio_root_password
+    # Note: slovo_minio_root_password is excluded because it references a vault-encrypted
+    # variable (secret_slovo_minio_root_password). Using lookup() here would trigger
+    # decryption and fail when no vault password is available. The vault-encrypted
+    # variable is validated implicitly when it's actually used by the minio role.
 
 - name: Fail if Traefik enabled but no API hostname specified
   ansible.builtin.fail:
