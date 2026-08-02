@@ -13,6 +13,9 @@ slovo_admin_user_postgres_container: "{{ postgres_identifier | default('slovo-po
 slovo_admin_user_postgres_user: "{{ slovo_backend_postgres_user | default('slovo') }}"
 slovo_admin_user_postgres_db: "{{ slovo_backend_postgres_db | default('slovo') }}"
 
+# Backend container (used to poll the /health endpoint)
+slovo_admin_user_backend_container: "{{ slovo_backend_identifier | default('slovo-backend') }}"
+
 # Retry settings for waiting on backend
 slovo_admin_user_backend_wait_retries: 30
 slovo_admin_user_backend_wait_delay: 5

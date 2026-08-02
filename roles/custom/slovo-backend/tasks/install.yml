@@ -43,6 +43,17 @@
         group: "{{ slovo_group_name }}"
         recurse: true
 
+    - name: Check if slovo-backend repository is a valid git checkout
+      ansible.builtin.stat:
+        path: "{{ slovo_backend_container_src_path }}/.git"
+      register: slovo_backend_git_check
+
+    - name: Remove broken slovo-backend repository if not a valid git checkout
+      ansible.builtin.file:
+        path: "{{ slovo_backend_container_src_path }}"
+        state: absent
+      when: not slovo_backend_git_check.stat.exists
+
     - name: Ensure slovo-backend repository is present on self-build
       ansible.builtin.git:
         repo: "{{ slovo_backend_container_image_self_build_repo }}"

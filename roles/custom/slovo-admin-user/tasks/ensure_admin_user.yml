@@ -18,16 +18,15 @@
   retries: "{{ slovo_admin_user_backend_wait_retries }}"
   delay: "{{ slovo_admin_user_backend_wait_delay }}"
 
-- name: Wait for backend to create the user table
+- name: Wait for backend to be healthy
   ansible.builtin.command:
-    cmd: >-
-      docker exec {{ slovo_admin_user_postgres_container }} psql -U {{ slovo_admin_user_postgres_user }} -d {{ slovo_admin_user_postgres_db }} -tAc "SELECT 1 FROM \"user\" LIMIT 1"
-  register: slovo_admin_user_table_check
-  until: slovo_admin_user_table_check.rc == 0
+    cmd: "{{ devture_systemd_docker_base_host_command_docker | default('docker') }} exec {{ slovo_admin_user_backend_container }} wget -q -O /dev/null http://localhost:3000/health"
+  register: slovo_admin_user_health_check
+  until: slovo_admin_user_health_check.rc == 0
   retries: "{{ slovo_admin_user_backend_wait_retries }}"
   delay: "{{ slovo_admin_user_backend_wait_delay }}"
-  no_log: true
   changed_when: false
+  no_log: true
 
 - name: Generate bcrypt hash for admin user password
   ansible.builtin.shell:
