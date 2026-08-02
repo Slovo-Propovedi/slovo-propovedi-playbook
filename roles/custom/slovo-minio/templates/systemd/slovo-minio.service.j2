@@ -25,7 +25,7 @@ ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
     {% for arg in slovo_minio_container_extra_arguments %}
     {{ arg }} \
     {% endfor %}
-    {{ slovo_minio_container_image }} server /data --console-address ":9001"
+    {{ slovo_minio_container_image }} server /data --address ":9000" --console-address ":9001"
 {% for network in slovo_minio_container_additional_networks %}
 ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} network connect {{ network }} slovo-minio
 {% endfor %}
