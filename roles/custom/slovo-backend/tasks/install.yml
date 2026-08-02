@@ -54,6 +54,11 @@
         state: absent
       when: not slovo_backend_git_check.stat.exists
 
+    - name: Ensure git trusts the slovo-backend repository directory
+      ansible.builtin.command:
+        cmd: "git config --global --add safe.directory {{ slovo_backend_container_src_path }}"
+      changed_when: false
+
     - name: Ensure slovo-backend repository is present on self-build
       ansible.builtin.git:
         repo: "{{ slovo_backend_container_image_self_build_repo }}"
