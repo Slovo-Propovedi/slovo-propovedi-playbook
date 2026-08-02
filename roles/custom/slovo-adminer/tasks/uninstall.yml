@@ -1,0 +1,36 @@
+---
+
+- name: Check existence of slovo-adminer service
+  ansible.builtin.stat:
+    path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-adminer.service"
+  register: slovo_adminer_service_stat
+
+- when: slovo_adminer_service_stat.stat.exists | bool
+  block:
+    - name: Ensure slovo-adminer is stopped
+      ansible.builtin.service:
+        name: slovo-adminer
+        state: stopped
+        enabled: false
+        daemon_reload: true
+
+    - name: Ensure slovo-adminer.service doesn't exist
+      ansible.builtin.file:
+        path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-adminer.service"
+        state: absent
+
+- name: Ensure slovo-adminer container doesn't exist
+  ansible.builtin.command:
+    cmd: "{{ devture_systemd_docker_base_host_command_docker }} rm -f slovo-adminer"
+  register: slovo_adminer_container_removal_result
+  changed_when: slovo_adminer_container_removal_result.rc == 0
+  failed_when: >-
+    slovo_adminer_container_removal_result.rc != 0
+    and 'No such container' not in slovo_adminer_container_removal_result.stderr
+    and 'no such container' not in slovo_adminer_container_removal_result.stderr
+
+- name: Ensure slovo-adminer paths don't exist
+  ansible.builtin.file:
+    path: "{{ slovo_adminer_base_path }}"
+    state: absent
+  when: "slovo_adminer_uninstall_remove_data | default(false) | bool"

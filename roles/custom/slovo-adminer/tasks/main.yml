@@ -1,0 +1,20 @@
+---
+
+- tags:
+    - setup-all
+    - setup-slovo-adminer
+    - install-all
+    - install-slovo-adminer
+  block:
+    - when: slovo_adminer_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
+
+    - when: slovo_adminer_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/install.yml"
+
+- tags:
+    - setup-all
+    - setup-slovo-adminer
+  block:
+    - when: not slovo_adminer_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/uninstall.yml"

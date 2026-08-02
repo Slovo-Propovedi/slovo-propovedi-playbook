@@ -1,0 +1,20 @@
+---
+
+- tags:
+    - setup-all
+    - setup-slovo-minio
+    - install-all
+    - install-slovo-minio
+  block:
+    - when: slovo_minio_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
+
+    - when: slovo_minio_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/install.yml"
+
+- tags:
+    - setup-all
+    - setup-slovo-minio
+  block:
+    - when: not slovo_minio_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/uninstall.yml"

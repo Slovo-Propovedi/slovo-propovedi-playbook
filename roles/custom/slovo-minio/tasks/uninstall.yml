@@ -1,0 +1,36 @@
+---
+
+- name: Check existence of slovo-minio service
+  ansible.builtin.stat:
+    path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-minio.service"
+  register: slovo_minio_service_stat
+
+- when: slovo_minio_service_stat.stat.exists | bool
+  block:
+    - name: Ensure slovo-minio is stopped
+      ansible.builtin.service:
+        name: slovo-minio
+        state: stopped
+        enabled: false
+        daemon_reload: true
+
+    - name: Ensure slovo-minio.service doesn't exist
+      ansible.builtin.file:
+        path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-minio.service"
+        state: absent
+
+- name: Ensure slovo-minio container doesn't exist
+  ansible.builtin.command:
+    cmd: "{{ devture_systemd_docker_base_host_command_docker }} rm -f slovo-minio"
+  register: slovo_minio_container_removal_result
+  changed_when: slovo_minio_container_removal_result.rc == 0
+  failed_when: >-
+    slovo_minio_container_removal_result.rc != 0
+    and 'No such container' not in slovo_minio_container_removal_result.stderr
+    and 'no such container' not in slovo_minio_container_removal_result.stderr
+
+- name: Ensure slovo-minio paths don't exist
+  ansible.builtin.file:
+    path: "{{ slovo_minio_base_path }}"
+    state: absent
+  when: "slovo_minio_uninstall_remove_data | default(false) | bool"

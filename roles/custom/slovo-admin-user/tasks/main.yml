@@ -1,0 +1,13 @@
+---
+
+- tags:
+    # This role intentionally doesn't do work on a `setup-all`/`install-all` tag.
+    # If it did, the initial installation would also potentially pollute the database with data,
+    # which would make importing a database dump problematic.
+    #
+    # Run it on-demand instead, e.g.: ansible-playbook setup.yml --tags=ensure-slovo-users-created
+    - ensure-slovo-users-created
+    - ensure-users-created
+  block:
+    - when: slovo_admin_user_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/ensure_admin_user.yml"

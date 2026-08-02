@@ -1,0 +1,20 @@
+---
+
+- tags:
+    - setup-all
+    - setup-slovo-backend
+    - install-all
+    - install-slovo-backend
+  block:
+    - when: slovo_backend_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
+
+    - when: slovo_backend_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/install.yml"
+
+- tags:
+    - setup-all
+    - setup-slovo-backend
+  block:
+    - when: not slovo_backend_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/uninstall.yml"

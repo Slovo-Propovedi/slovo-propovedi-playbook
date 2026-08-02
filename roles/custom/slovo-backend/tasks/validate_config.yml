@@ -1,0 +1,20 @@
+---
+
+- name: Fail if required slovo-backend variables are undefined
+  ansible.builtin.fail:
+    msg: "You need to define a required variable for `{{ item }}`."
+  when: "lookup('vars', item, default='') | string | length == 0"
+  with_items:
+    - slovo_backend_jwt_secret
+    - slovo_backend_jwt_refresh_secret
+    - slovo_backend_postgres_password
+
+- name: Fail if Traefik enabled but no hostname specified
+  ansible.builtin.fail:
+    msg: "You need to set `slovo_backend_hostname` when using Traefik"
+  when: "slovo_backend_container_labels_traefik_enabled | bool and slovo_backend_hostname | length == 0"
+
+- name: Fail if the API hostname is the same as the main hostname
+  ansible.builtin.fail:
+    msg: "`slovo_backend_api_hostname` must be different from `slovo_backend_hostname`, otherwise the `slovo-backend` and `slovo-backend-api` Traefik routers would have identical Host rules"
+  when: "slovo_backend_container_labels_traefik_enabled | bool and slovo_backend_api_hostname | length > 0 and slovo_backend_api_hostname == slovo_backend_hostname"

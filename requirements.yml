@@ -1,0 +1,26 @@
+---
+
+- src: git+https://github.com/geerlingguy/ansible-role-docker
+  version: 8.0.0
+  name: docker
+- src: git+https://github.com/devture/com.devture.ansible.role.systemd_docker_base.git
+  version: v1.5.0-0
+  name: systemd_docker_base
+- src: git+https://github.com/devture/com.devture.ansible.role.systemd_service_manager.git
+  version: v3.2.1-0
+  name: systemd_service_manager
+- src: git+https://github.com/devture/com.devture.ansible.role.playbook_help.git
+  version: ea8c5cc750c4e23d004c9a836dfd9eda82d45ff4
+  name: playbook_help
+- src: git+https://github.com/devture/com.devture.ansible.role.playbook_runtime_messages.git
+  version: 9b4b088c62b528b73a9a7c93d3109b091dd42ec6
+  name: playbook_runtime_messages
+- src: git+https://github.com/devture/com.devture.ansible.role.playbook_state_preserver.git
+  version: dd6e15246b7a9a2d921e0b3f9cd8a4a917a1bb2f
+  name: playbook_state_preserver
+- src: git+https://github.com/mother-of-all-self-hosting/ansible-role-postgres.git
+  version: v18.4-2
+  name: postgres
+- src: git+https://github.com/mother-of-all-self-hosting/ansible-role-traefik.git
+  version: v3.7.9-0
+  name: traefik

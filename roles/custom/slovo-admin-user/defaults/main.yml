@@ -1,0 +1,18 @@
+---
+
+# Whether admin user seeding is enabled
+slovo_admin_user_enabled: true
+
+# Admin user details
+slovo_admin_user_name: "Admin"
+slovo_admin_user_email: ''  # User must provide via vault
+slovo_admin_user_password: ''  # Plaintext, will be bcrypt-hashed at runtime. User must provide via vault.
+
+# Postgres connection details (wired from backend vars in group_vars)
+slovo_admin_user_postgres_container: "{{ postgres_identifier | default('slovo-postgres') }}"
+slovo_admin_user_postgres_user: "{{ slovo_backend_postgres_user | default('slovo') }}"
+slovo_admin_user_postgres_db: "{{ slovo_backend_postgres_db | default('slovo') }}"
+
+# Retry settings for waiting on backend
+slovo_admin_user_backend_wait_retries: 30
+slovo_admin_user_backend_wait_delay: 5

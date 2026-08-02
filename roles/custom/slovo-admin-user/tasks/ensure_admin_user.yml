@@ -1,0 +1,66 @@
+---
+
+- name: Fail if admin user email is not set
+  ansible.builtin.fail:
+    msg: "You need to set `slovo_admin_user_email`"
+  when: "slovo_admin_user_email | length == 0"
+
+- name: Fail if admin user password is not set
+  ansible.builtin.fail:
+    msg: "You need to set `slovo_admin_user_password`"
+  when: "slovo_admin_user_password | length == 0"
+
+- name: Wait for PostgreSQL to be ready
+  ansible.builtin.command:
+    cmd: "docker exec {{ slovo_admin_user_postgres_container }} pg_isready -U {{ slovo_admin_user_postgres_user }}"
+  register: slovo_admin_user_pg_check
+  until: slovo_admin_user_pg_check.rc == 0
+  retries: "{{ slovo_admin_user_backend_wait_retries }}"
+  delay: "{{ slovo_admin_user_backend_wait_delay }}"
+
+- name: Wait for backend to create the user table
+  ansible.builtin.command:
+    cmd: >-
+      docker exec {{ slovo_admin_user_postgres_container }} psql -U {{ slovo_admin_user_postgres_user }} -d {{ slovo_admin_user_postgres_db }} -tAc "SELECT 1 FROM \"user\" LIMIT 1"
+  register: slovo_admin_user_table_check
+  until: slovo_admin_user_table_check.rc == 0
+  retries: "{{ slovo_admin_user_backend_wait_retries }}"
+  delay: "{{ slovo_admin_user_backend_wait_delay }}"
+  no_log: true
+  changed_when: false
+
+- name: Generate bcrypt hash for admin user password
+  ansible.builtin.shell:
+    cmd: "python3 -c \"import bcrypt, sys; print(bcrypt.hashpw(sys.stdin.buffer.read().strip(), bcrypt.gensalt(10)).decode())\""
+  args:
+    stdin: "{{ slovo_admin_user_password }}"
+  register: slovo_admin_user_bcrypt_hash
+  changed_when: false
+  no_log: true
+
+- name: Insert admin user into database
+  # psql only performs variable interpolation (`:'var'`) on SQL read from stdin, never from `-c`.
+  # The SQL is fed via stdin and the values arrive through `\set`, so no value is ever
+  # interpolated directly into the SQL string (SQL-injection safe).
+  ansible.builtin.shell:
+    cmd: >-
+      docker exec -i {{ slovo_admin_user_postgres_container }}
+      psql -U {{ slovo_admin_user_postgres_user }} -d {{ slovo_admin_user_postgres_db }}
+  stdin: |
+    \set name '{{ slovo_admin_user_name | replace("'", "''") }}'
+    \set email '{{ slovo_admin_user_email | replace("'", "''") }}'
+    \set hash '{{ slovo_admin_user_bcrypt_hash.stdout | replace("'", "''") }}'
+    INSERT INTO "user" (id, name, email, password) VALUES (gen_random_uuid(), :'name', :'email', :'hash') ON CONFLICT (email) DO NOTHING;
+  register: slovo_admin_user_insert_result
+  changed_when: "'INSERT 0 1' in slovo_admin_user_insert_result.stdout"
+  no_log: true
+
+- name: Report that the admin user already exists
+  ansible.builtin.debug:
+    msg: "Admin user '{{ slovo_admin_user_email }}' already exists in database"
+  when: "'INSERT 0 0' in slovo_admin_user_insert_result.stdout"
+
+- name: Report successful admin user creation
+  ansible.builtin.debug:
+    msg: "Admin user '{{ slovo_admin_user_email }}' created successfully"
+  when: "'INSERT 0 1' in slovo_admin_user_insert_result.stdout"

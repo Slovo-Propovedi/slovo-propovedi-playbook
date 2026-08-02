@@ -1,0 +1,88 @@
+---
+
+# slovo-minio is the MinIO object-storage server for slovo-propovedi.
+# Project source code URL: https://github.com/minio/minio
+# The container image is pulled from the official registry.
+
+slovo_minio_enabled: true
+
+# The identifier used for the container name and the systemd service name.
+slovo_minio_identifier: "slovo-minio"
+
+slovo_minio_version: "RELEASE.2025-09-07T16-13-09Z"
+
+# The hostname at which the slovo-minio API is served (e.g. minio.example.com).
+slovo_minio_hostname: ''
+
+# The hostname at which the slovo-minio console is served (e.g. minio-console.example.com).
+slovo_minio_console_hostname: ''
+
+# The path at which slovo-minio is served.
+# This value must either be `/` or not end with a slash (e.g. `/minio`).
+slovo_minio_path_prefix: /
+
+slovo_minio_base_path: "{{ slovo_base_data_path }}/minio"
+slovo_minio_data_path: "{{ slovo_minio_base_path }}/data"
+
+# Self-build (not needed for MinIO — the official image is used).
+slovo_minio_container_image_self_build: false
+
+# The container image name, with support for a custom registry prefix (e.g. `registry.example.com/`).
+slovo_minio_container_image_name_prefix: ""
+slovo_minio_container_image: "{{ slovo_minio_container_image_name_prefix }}minio/minio:{{ slovo_minio_version }}"
+
+# The base container network. It will be auto-created by this role if it doesn't exist already.
+slovo_minio_container_network: ''
+
+# A list of additional container networks that the container would be connected to.
+# The role does not create these networks, so make sure they already exist.
+slovo_minio_container_additional_networks: "{{ slovo_minio_container_additional_networks_default + slovo_minio_container_additional_networks_auto + slovo_minio_container_additional_networks_custom }}"
+slovo_minio_container_additional_networks_default: []
+slovo_minio_container_additional_networks_auto: []
+slovo_minio_container_additional_networks_custom: []
+
+# slovo_minio_container_labels_traefik_enabled controls whether labels to assist a Traefik reverse-proxy will be attached to the container.
+# See `../templates/labels.j2` for details.
+slovo_minio_container_labels_traefik_enabled: true
+slovo_minio_container_labels_traefik_docker_network: "{{ slovo_minio_container_network }}"
+# The API router (port 9000).
+slovo_minio_container_labels_traefik_api_hostname: "{{ slovo_minio_hostname }}"
+# The path prefix must either be `/` or not end with a slash (e.g. `/minio`).
+slovo_minio_container_labels_traefik_api_path_prefix: "{{ slovo_minio_path_prefix }}"
+slovo_minio_container_labels_traefik_api_rule: "Host(`{{ slovo_minio_container_labels_traefik_api_hostname }}`){% if slovo_minio_container_labels_traefik_api_path_prefix != '/' %} && PathPrefix(`{{ slovo_minio_container_labels_traefik_api_path_prefix }}`){% endif %}"
+slovo_minio_container_labels_traefik_api_entrypoints: web-secure
+slovo_minio_container_labels_traefik_api_tls: "{{ slovo_minio_container_labels_traefik_api_entrypoints != 'web' }}"
+slovo_minio_container_labels_traefik_api_tls_certResolver: default  # noqa var-naming
+# The console router (port 9001).
+slovo_minio_container_labels_traefik_console_hostname: "{{ slovo_minio_console_hostname }}"
+slovo_minio_container_labels_traefik_console_rule: "Host(`{{ slovo_minio_container_labels_traefik_console_hostname }}`)"
+slovo_minio_container_labels_traefik_console_entrypoints: web-secure
+slovo_minio_container_labels_traefik_console_tls: "{{ slovo_minio_container_labels_traefik_console_entrypoints != 'web' }}"
+slovo_minio_container_labels_traefik_console_tls_certResolver: default  # noqa var-naming
+
+# A list of extra arguments to pass to the container.
+# Unlike the backend, MinIO is not run read-only — it must write to its /data volume.
+slovo_minio_container_extra_arguments: []
+
+# List of systemd services that slovo-minio.service depends on
+slovo_minio_systemd_required_services_list: "{{ slovo_minio_systemd_required_services_list_default + slovo_minio_systemd_required_services_list_auto + slovo_minio_systemd_required_services_list_custom }}"
+slovo_minio_systemd_required_services_list_default: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
+slovo_minio_systemd_required_services_list_auto: []
+slovo_minio_systemd_required_services_list_custom: []
+
+# MinIO credentials (secrets are normally provided via the vault).
+slovo_minio_root_user: ''
+slovo_minio_root_password: ''
+
+# Controls whether uninstall also removes all data (defaults to false).
+slovo_minio_uninstall_remove_data: false
+
+# slovo_minio_restart_necessary controls whether the service
+# will be restarted (when true) or merely started (when false) by the
+# systemd service manager role (when conditional restart is enabled).
+#
+# This value is automatically computed during installation based on whether
+# any configuration files, the systemd service file, or the container image changed.
+# The default of `false` means "no restart needed" — appropriate when the role's
+# installation tasks haven't run (e.g., due to --tags skipping them).
+slovo_minio_restart_necessary: false

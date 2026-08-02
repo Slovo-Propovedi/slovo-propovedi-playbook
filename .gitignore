@@ -1,0 +1,10 @@
+# External roles fetched via ansible-galaxy (see requirements.yml)
+/roles/galaxy/*
+!/roles/galaxy/.gitkeep
+
+# Ansible retry files
+*.retry
+
+# Inventory can be a separate repository
+# (keeps server addresses and secrets out of this repo, like matrix-docker-ansible-deploy does)
+/inventory

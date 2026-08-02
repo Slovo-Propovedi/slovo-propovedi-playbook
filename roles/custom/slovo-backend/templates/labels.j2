@@ -1,0 +1,29 @@
+{% if slovo_backend_container_labels_traefik_enabled %}
+traefik.enable=true
+
+{% if slovo_backend_container_labels_traefik_docker_network %}
+traefik.docker.network={{ slovo_backend_container_labels_traefik_docker_network }}
+{% endif %}
+
+traefik.http.services.slovo-backend.loadbalancer.server.port=3000
+
+traefik.http.routers.slovo-backend.rule={{ slovo_backend_container_labels_traefik_rule }}
+traefik.http.routers.slovo-backend.service=slovo-backend
+traefik.http.routers.slovo-backend.entrypoints={{ slovo_backend_container_labels_traefik_entrypoints }}
+traefik.http.routers.slovo-backend.tls={{ slovo_backend_container_labels_traefik_tls | to_json }}
+{% if slovo_backend_container_labels_traefik_tls %}
+traefik.http.routers.slovo-backend.tls.certResolver={{ slovo_backend_container_labels_traefik_tls_certResolver }}
+{% endif %}
+
+{% if slovo_backend_container_labels_traefik_api_enabled %}
+# API router — separate subdomain for API requests (same backend, port 3000)
+traefik.http.routers.slovo-backend-api.rule={{ slovo_backend_container_labels_traefik_api_rule }}
+traefik.http.routers.slovo-backend-api.service=slovo-backend
+traefik.http.routers.slovo-backend-api.entrypoints={{ slovo_backend_container_labels_traefik_api_entrypoints }}
+traefik.http.routers.slovo-backend-api.tls={{ slovo_backend_container_labels_traefik_api_tls | to_json }}
+{% if slovo_backend_container_labels_traefik_api_tls %}
+traefik.http.routers.slovo-backend-api.tls.certResolver={{ slovo_backend_container_labels_traefik_api_tls_certResolver }}
+{% endif %}
+{% endif %}
+
+{% endif %}

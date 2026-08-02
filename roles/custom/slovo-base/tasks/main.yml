@@ -1,0 +1,29 @@
+---
+
+- tags:
+    - always
+  block:
+    - ansible.builtin.include_tasks: "{{ role_path }}/tasks/detect_platform.yml"
+
+# This needs to always run, because it populates `slovo_user_uid` and `slovo_user_gid`,
+# which are required by many other roles.
+- tags:
+    - always
+    - setup-system-user
+    - common
+  block:
+    - ansible.builtin.include_tasks: "{{ role_path }}/tasks/setup_slovo_user_linux.yml"
+      when: ansible_facts.os_family != 'Darwin'
+
+- tags:
+    - setup-all
+    - install-all
+    - common
+  block:
+    - name: Ensure Slovo base path exists
+      ansible.builtin.file:
+        path: "{{ slovo_base_data_path }}"
+        state: directory
+        mode: "{{ slovo_base_data_path_mode }}"
+        owner: "{{ slovo_user_name }}"
+        group: "{{ slovo_group_name }}"

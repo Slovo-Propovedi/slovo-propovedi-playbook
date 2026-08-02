@@ -1,0 +1,103 @@
+---
+
+# slovo-backend is the NestJS backend for slovo-propovedi.
+# Project source code URL: https://github.com/egoreast/slovo-propovedi-admin
+# The container image is built locally from the repository (see `backend/Dockerfile` in the repo).
+
+slovo_backend_enabled: true
+
+# The identifier used for the container name and the systemd service name.
+slovo_backend_identifier: "slovo-backend"
+
+# The hostname at which slovo-backend is served.
+slovo_backend_hostname: ''
+
+# The path at which slovo-backend is served.
+# This value must either be `/` or not end with a slash (e.g. `/backend`).
+slovo_backend_path_prefix: /
+
+slovo_backend_base_path: "{{ slovo_base_data_path }}/backend"
+
+# Self-build (the container image is built locally from the git repository).
+slovo_backend_container_image_self_build: true
+slovo_backend_container_image_self_build_repo: "ssh://git@git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-admin.git"
+slovo_backend_container_image_self_build_repo_version: "master"
+slovo_backend_container_src_path: "{{ slovo_backend_base_path }}/container-src"
+
+# The locally-built container image name.
+slovo_backend_container_image: "{{ slovo_backend_identifier }}:latest"
+
+# The base container network. It will be auto-created by this role if it doesn't exist already.
+slovo_backend_container_network: ''
+
+# A list of additional container networks that the container would be connected to.
+# The role does not create these networks, so make sure they already exist.
+slovo_backend_container_additional_networks: "{{ slovo_backend_container_additional_networks_default + slovo_backend_container_additional_networks_auto + slovo_backend_container_additional_networks_custom }}"
+slovo_backend_container_additional_networks_default: []
+slovo_backend_container_additional_networks_auto: []
+slovo_backend_container_additional_networks_custom: []
+
+# slovo_backend_container_labels_traefik_enabled controls whether labels to assist a Traefik reverse-proxy will be attached to the container.
+# See `../templates/labels.j2` for details.
+slovo_backend_container_labels_traefik_enabled: true
+slovo_backend_container_labels_traefik_docker_network: "{{ slovo_backend_container_network }}"
+slovo_backend_container_labels_traefik_hostname: "{{ slovo_backend_hostname }}"
+# The path prefix must either be `/` or not end with a slash (e.g. `/backend`).
+slovo_backend_container_labels_traefik_path_prefix: "{{ slovo_backend_path_prefix }}"
+slovo_backend_container_labels_traefik_rule: "Host(`{{ slovo_backend_container_labels_traefik_hostname }}`){% if slovo_backend_container_labels_traefik_path_prefix != '/' %} && PathPrefix(`{{ slovo_backend_container_labels_traefik_path_prefix }}`){% endif %}"
+slovo_backend_container_labels_traefik_entrypoints: web-secure
+slovo_backend_container_labels_traefik_tls: "{{ slovo_backend_container_labels_traefik_entrypoints != 'web' }}"
+slovo_backend_container_labels_traefik_tls_certResolver: default  # noqa var-naming
+
+# The API hostname at which slovo-backend API endpoints are served.
+# This is a separate subdomain (e.g. api.example.com) for API requests
+# (adding/removing sermons, playlists, etc.), routing to the same backend container.
+# When empty, no API router is created (all traffic goes through slovo_backend_hostname).
+slovo_backend_api_hostname: ''
+
+# Traefik labels for the API router (derived from slovo_backend_api_hostname).
+# These mirror the main router's label vars but produce a separate Traefik router named `slovo-backend-api`.
+slovo_backend_container_labels_traefik_api_enabled: "{{ slovo_backend_container_labels_traefik_enabled and slovo_backend_api_hostname | length > 0 }}"
+slovo_backend_container_labels_traefik_api_hostname: "{{ slovo_backend_api_hostname }}"
+slovo_backend_container_labels_traefik_api_rule: "Host(`{{ slovo_backend_container_labels_traefik_api_hostname }}`)"
+slovo_backend_container_labels_traefik_api_entrypoints: "{{ slovo_backend_container_labels_traefik_entrypoints }}"
+slovo_backend_container_labels_traefik_api_tls: "{{ slovo_backend_container_labels_traefik_tls }}"
+slovo_backend_container_labels_traefik_api_tls_certResolver: "{{ slovo_backend_container_labels_traefik_tls_certResolver }}"
+
+# A list of extra arguments to pass to the container.
+# The container runs read-only, but the backend (NestJS/Node) may need to write temporary files,
+# so a writable tmpfs is mounted at /tmp.
+slovo_backend_container_extra_arguments:
+  - "--tmpfs=/tmp:rw,noexec,nosuid,size=1024m"
+
+# List of systemd services that slovo-backend.service depends on
+slovo_backend_systemd_required_services_list: "{{ slovo_backend_systemd_required_services_list_default + slovo_backend_systemd_required_services_list_auto + slovo_backend_systemd_required_services_list_custom }}"
+slovo_backend_systemd_required_services_list_default: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
+slovo_backend_systemd_required_services_list_auto: []
+slovo_backend_systemd_required_services_list_custom: []
+
+# Backend configuration (secrets are normally provided via the vault).
+slovo_backend_jwt_secret: ''
+slovo_backend_jwt_refresh_secret: ''
+slovo_backend_postgres_host: ''
+slovo_backend_postgres_user: 'slovo'
+slovo_backend_postgres_password: ''
+slovo_backend_postgres_db: 'slovo'
+slovo_backend_minio_endpoint: ''
+slovo_backend_minio_main_port_in: 9000
+slovo_backend_minio_access_key: ''
+slovo_backend_minio_secret_key: ''
+slovo_backend_minio_public_uri: ''
+
+# Controls whether uninstall also removes all data (defaults to false).
+slovo_backend_uninstall_remove_data: false
+
+# slovo_backend_restart_necessary controls whether the service
+# will be restarted (when true) or merely started (when false) by the
+# systemd service manager role (when conditional restart is enabled).
+#
+# This value is automatically computed during installation based on whether
+# any configuration files, the systemd service file, or the container image changed.
+# The default of `false` means "no restart needed" — appropriate when the role's
+# installation tasks haven't run (e.g., due to --tags skipping them).
+slovo_backend_restart_necessary: false

@@ -1,0 +1,19 @@
+---
+
+- name: Fail if required slovo-minio variables are undefined
+  ansible.builtin.fail:
+    msg: "You need to define a required variable for `{{ item }}`."
+  when: "lookup('vars', item, default='') | string | length == 0"
+  with_items:
+    - slovo_minio_root_user
+    - slovo_minio_root_password
+
+- name: Fail if Traefik enabled but no API hostname specified
+  ansible.builtin.fail:
+    msg: "You need to set `slovo_minio_hostname` when using Traefik"
+  when: "slovo_minio_container_labels_traefik_enabled | bool and slovo_minio_hostname | length == 0"
+
+- name: Fail if Traefik enabled but no console hostname specified
+  ansible.builtin.fail:
+    msg: "You need to set `slovo_minio_console_hostname` when using Traefik"
+  when: "slovo_minio_container_labels_traefik_enabled | bool and slovo_minio_console_hostname | length == 0"

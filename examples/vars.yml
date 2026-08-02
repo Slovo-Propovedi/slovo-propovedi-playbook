@@ -1,0 +1,63 @@
+---
+# Minimal configuration for slovo-propovedi-playbook
+# Copy this to inventory/host_vars/<your-host>/vars.yml and fill in your values
+
+# =============================================================================
+# Base
+# =============================================================================
+slovo_base_data_path: /slovo
+
+# =============================================================================
+# Reverse proxy
+# =============================================================================
+slovo_playbook_reverse_proxy_type: playbook-managed-traefik
+
+# =============================================================================
+# Postgres (wired from backend vars)
+# =============================================================================
+# The backend's postgres credentials are used to create the database
+slovo_backend_postgres_user: slovo
+slovo_backend_postgres_password: CHANGE_ME_strong_password_here
+slovo_backend_postgres_db: slovo
+
+# =============================================================================
+# Backend (NestJS)
+# =============================================================================
+slovo_backend_hostname: admin.example.com
+# API subdomain for API requests (adding/removing sermons, etc.)
+# Routes to the same backend container on port 3000.
+slovo_backend_api_hostname: api.example.com
+slovo_backend_jwt_secret: CHANGE_ME_generate_random_string
+slovo_backend_jwt_refresh_secret: CHANGE_ME_different_random_string
+
+# MinIO connection (internal, via Docker network)
+# slovo_backend_minio_endpoint is set in group_vars to the minio container name
+# slovo_backend_minio_main_port_in is set in group_vars to 9000
+
+# =============================================================================
+# MinIO
+# =============================================================================
+slovo_minio_hostname: minio-api.example.com
+slovo_minio_console_hostname: minio-console.example.com
+slovo_minio_root_user: slovo_minio
+slovo_minio_root_password: CHANGE_ME_strong_password_here
+
+# =============================================================================
+# Adminer (optional)
+# =============================================================================
+slovo_adminer_enabled: true
+slovo_adminer_hostname: adminer.example.com
+
+# =============================================================================
+# Admin user seeding (run separately: --tags ensure-slovo-users-created)
+# =============================================================================
+slovo_admin_user_email: admin@example.com
+slovo_admin_user_password: CHANGE_ME_initial_password_here
+
+# =============================================================================
+# Traefik (auto-configured, but you can override)
+# =============================================================================
+# Email used for Let's Encrypt certificate notifications.
+# CHANGE THIS to your own email address before deploying.
+traefik_config_certificatesResolvers_acme_email: letsencrypt@example.com
+# traefik_config_certificatesResolvers_acme_enabled: true

@@ -1,0 +1,68 @@
+---
+
+- name: Ensure slovo-minio paths exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: '0750'
+    owner: "{{ slovo_user_name }}"
+    group: "{{ slovo_group_name }}"
+  with_items:
+    - path: "{{ slovo_minio_base_path }}"
+      when: true
+    - path: "{{ slovo_minio_data_path }}"
+      when: true
+  when: item.when | bool
+
+- name: Ensure slovo-minio env file installed
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/env.j2"
+    dest: "{{ slovo_minio_base_path }}/env"
+    mode: '0640'
+    owner: "{{ slovo_user_name }}"
+    group: "{{ slovo_group_name }}"
+  register: slovo_minio_env_file_changed
+
+- name: Ensure slovo-minio labels file installed
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/labels.j2"
+    dest: "{{ slovo_minio_base_path }}/labels"
+    mode: '0640'
+    owner: "{{ slovo_user_name }}"
+    group: "{{ slovo_group_name }}"
+  register: slovo_minio_labels_file_changed
+
+- name: Ensure slovo-minio container image is pulled
+  community.docker.docker_image_pull:
+    name: "{{ slovo_minio_container_image }}"
+    pull: always
+  when: "not slovo_minio_container_image_self_build | bool"
+  register: slovo_minio_container_image_pull_changed
+  retries: "{{ devture_playbook_help_container_retries_count }}"
+  delay: "{{ devture_playbook_help_container_retries_delay }}"
+  until: slovo_minio_container_image_pull_changed is not failed
+
+- name: Ensure slovo-minio container network is created
+  when: slovo_minio_container_network != 'host'
+  community.general.docker_network:
+    enable_ipv6: "{{ devture_systemd_docker_base_ipv6_enabled }}"
+    name: "{{ slovo_minio_container_network }}"
+    driver: bridge
+    driver_options: "{{ devture_systemd_docker_base_container_networks_driver_options }}"
+
+- name: Ensure slovo-minio.service installed
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/systemd/slovo-minio.service.j2"
+    dest: "{{ devture_systemd_docker_base_systemd_path }}/slovo-minio.service"
+    mode: '0644'
+  register: slovo_minio_systemd_unit_changed
+
+- name: Determine whether slovo-minio needs a restart
+  ansible.builtin.set_fact:
+    slovo_minio_restart_necessary: >-
+      {{
+        slovo_minio_env_file_changed.changed | default(false)
+        or slovo_minio_labels_file_changed.changed | default(false)
+        or slovo_minio_container_image_pull_changed.changed | default(false)
+        or slovo_minio_systemd_unit_changed.changed | default(false)
+      }}

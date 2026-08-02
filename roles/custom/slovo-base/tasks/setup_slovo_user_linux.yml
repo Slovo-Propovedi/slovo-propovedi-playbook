@@ -1,0 +1,26 @@
+---
+
+- name: Ensure Slovo group is created
+  ansible.builtin.group:
+    name: "{{ slovo_group_name }}"
+    gid: "{{ omit if slovo_user_gid is none else slovo_user_gid }}"
+    state: present
+    system: "{{ slovo_group_system }}"
+  register: slovo_group
+
+- name: Ensure Slovo user is created
+  ansible.builtin.user:
+    name: "{{ slovo_user_name }}"
+    uid: "{{ omit if slovo_user_uid is none else slovo_user_uid }}"
+    state: present
+    group: "{{ slovo_group_name }}"
+    home: "{{ slovo_base_data_path }}"
+    create_home: false
+    system: "{{ slovo_user_system }}"
+    shell: "{{ slovo_user_shell }}"
+  register: slovo_user
+
+- name: Initialize slovo_user_uid and slovo_user_gid
+  ansible.builtin.set_fact:
+    slovo_user_uid: "{{ slovo_user.uid }}"
+    slovo_user_gid: "{{ slovo_group.gid }}"

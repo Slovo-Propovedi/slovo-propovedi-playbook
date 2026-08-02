@@ -1,0 +1,77 @@
+---
+
+# slovo-adminer is a lightweight database management UI for slovo-propovedi.
+# It's a single-container PHP application that lets an admin connect to any
+# database (e.g. PostgreSQL) through the web UI, entering credentials manually.
+# The official `adminer` container image is used; no environment variables are needed.
+
+slovo_adminer_enabled: true
+
+# The identifier used for the container name and the systemd service name.
+slovo_adminer_identifier: "slovo-adminer"
+
+slovo_adminer_version: "4.8.1"
+
+# The hostname at which slovo-adminer is served.
+slovo_adminer_hostname: ''
+
+# The path at which slovo-adminer is served.
+# This value must either be `/` or not end with a slash (e.g. `/adminer`).
+slovo_adminer_path_prefix: /
+
+slovo_adminer_base_path: "{{ slovo_base_data_path }}/adminer"
+
+# The container image name prefix (useful for pulling from a custom registry).
+slovo_adminer_container_image_name_prefix: ""
+
+# The container image to use.
+slovo_adminer_container_image: "{{ slovo_adminer_container_image_name_prefix }}adminer:{{ slovo_adminer_version }}"
+
+# Self-build is not applicable to Adminer — the official image is pulled from the registry.
+slovo_adminer_container_image_self_build: false
+
+# The base container network. It will be auto-created by this role if it doesn't exist already.
+slovo_adminer_container_network: ''
+
+# A list of additional container networks that the container would be connected to.
+# The role does not create these networks, so make sure they already exist.
+slovo_adminer_container_additional_networks: "{{ slovo_adminer_container_additional_networks_default + slovo_adminer_container_additional_networks_auto + slovo_adminer_container_additional_networks_custom }}"
+slovo_adminer_container_additional_networks_default: []
+slovo_adminer_container_additional_networks_auto: []
+slovo_adminer_container_additional_networks_custom: []
+
+# slovo_adminer_container_labels_traefik_enabled controls whether labels to assist a Traefik reverse-proxy will be attached to the container.
+# See `../templates/labels.j2` for details.
+slovo_adminer_container_labels_traefik_enabled: true
+slovo_adminer_container_labels_traefik_docker_network: "{{ slovo_adminer_container_network }}"
+slovo_adminer_container_labels_traefik_hostname: "{{ slovo_adminer_hostname }}"
+# The path prefix must either be `/` or not end with a slash (e.g. `/adminer`).
+slovo_adminer_container_labels_traefik_path_prefix: "{{ slovo_adminer_path_prefix }}"
+slovo_adminer_container_labels_traefik_rule: "Host(`{{ slovo_adminer_container_labels_traefik_hostname }}`){% if slovo_adminer_container_labels_traefik_path_prefix != '/' %} && PathPrefix(`{{ slovo_adminer_container_labels_traefik_path_prefix }}`){% endif %}"
+slovo_adminer_container_labels_traefik_entrypoints: web-secure
+slovo_adminer_container_labels_traefik_tls: "{{ slovo_adminer_container_labels_traefik_entrypoints != 'web' }}"
+slovo_adminer_container_labels_traefik_tls_certResolver: default  # noqa var-naming
+
+# A list of extra arguments to pass to the container.
+# The container runs read-only, but Adminer (PHP) needs to write temporary files,
+# so a writable tmpfs is mounted at /tmp (see the systemd service template).
+slovo_adminer_container_extra_arguments: []
+
+# List of systemd services that slovo-adminer.service depends on
+slovo_adminer_systemd_required_services_list: "{{ slovo_adminer_systemd_required_services_list_default + slovo_adminer_systemd_required_services_list_auto + slovo_adminer_systemd_required_services_list_custom }}"
+slovo_adminer_systemd_required_services_list_default: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
+slovo_adminer_systemd_required_services_list_auto: []
+slovo_adminer_systemd_required_services_list_custom: []
+
+# slovo_adminer_restart_necessary controls whether the service
+# will be restarted (when true) or merely started (when false) by the
+# systemd service manager role (when conditional restart is enabled).
+#
+# This value is automatically computed during installation based on whether
+# any configuration files, the systemd service file, or the container image changed.
+# The default of `false` means "no restart needed" — appropriate when the role's
+# installation tasks haven't run (e.g., due to --tags skipping them).
+slovo_adminer_restart_necessary: false
+
+# Controls whether uninstall also removes all data (defaults to false).
+slovo_adminer_uninstall_remove_data: false

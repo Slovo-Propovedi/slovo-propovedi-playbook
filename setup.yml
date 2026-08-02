@@ -1,0 +1,90 @@
+---
+- name: "Set up a slovo-propovedi server"
+  hosts: "{{ target if target is defined else 'slovo_servers' }}"
+  become: true
+
+  roles:
+    # Most of the roles below are not distributed with the playbook, but downloaded separately using `ansible-galaxy` via the `just roles` command (see `justfile`).
+    - role: galaxy/playbook_help
+      tags:
+        - setup-all
+        - install-all
+
+    - role: galaxy/systemd_docker_base
+
+    - role: custom/slovo-base
+      tags:
+        - setup-all
+        - install-all
+        - setup-slovo-base
+        - install-slovo-base
+
+    - when: docker_installation_enabled | bool
+      role: galaxy/docker
+      vars:
+        docker_install_compose: false
+        docker_install_compose_plugin: false
+      tags:
+        - setup-docker
+        - setup-all
+        - install-docker
+        - install-all
+
+    - role: galaxy/postgres
+      tags:
+        - setup-postgres
+        - setup-all
+        - install-postgres
+        - install-all
+
+    - role: custom/slovo-minio
+      tags:
+        - setup-slovo-minio
+        - setup-all
+        - install-slovo-minio
+        - install-all
+
+    - role: custom/slovo-backend
+      tags:
+        - setup-slovo-backend
+        - setup-all
+        - install-slovo-backend
+        - install-all
+
+    - role: custom/slovo-adminer
+      tags:
+        - setup-slovo-adminer
+        - setup-all
+        - install-slovo-adminer
+        - install-all
+
+    # This role is meant to be run on-demand (e.g. `ansible-playbook setup.yml --tags=ensure-slovo-users-created`)
+    # and intentionally does NOT get the setup-all/install-all tags.
+    - role: custom/slovo-admin-user
+      tags:
+        - ensure-slovo-users-created
+        - ensure-users-created
+
+    - role: galaxy/traefik
+      tags:
+        - setup-traefik
+        - setup-all
+        - install-traefik
+        - install-all
+
+    - when: devture_systemd_service_manager_services_list_auto | length > 0
+      role: galaxy/systemd_service_manager
+      tags:
+        - setup-all
+        - install-all
+
+    - when: devture_playbook_state_preserver_enabled | bool
+      role: galaxy/playbook_state_preserver
+      tags:
+        - setup-all
+        - install-all
+
+    - role: galaxy/playbook_runtime_messages
+      tags:
+        - setup-all
+        - install-all

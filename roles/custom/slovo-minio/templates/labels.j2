@@ -1,0 +1,31 @@
+{% if slovo_minio_container_labels_traefik_enabled %}
+traefik.enable=true
+
+{% if slovo_minio_container_labels_traefik_docker_network %}
+traefik.docker.network={{ slovo_minio_container_labels_traefik_docker_network }}
+{% endif %}
+
+# API router
+traefik.http.services.slovo-minio.loadbalancer.server.port=9000
+
+traefik.http.routers.slovo-minio.rule={{ slovo_minio_container_labels_traefik_api_rule }}
+traefik.http.routers.slovo-minio.service=slovo-minio
+traefik.http.routers.slovo-minio.entrypoints={{ slovo_minio_container_labels_traefik_api_entrypoints }}
+traefik.http.routers.slovo-minio.tls={{ slovo_minio_container_labels_traefik_api_tls | to_json }}
+{% if slovo_minio_container_labels_traefik_api_tls %}
+traefik.http.routers.slovo-minio.tls.certResolver={{ slovo_minio_container_labels_traefik_api_tls_certResolver }}
+{% endif %}
+
+# Console router
+traefik.http.routers.slovo-minio-console.rule={{ slovo_minio_container_labels_traefik_console_rule }}
+traefik.http.routers.slovo-minio-console.service=slovo-minio-console
+traefik.http.routers.slovo-minio-console.entrypoints={{ slovo_minio_container_labels_traefik_console_entrypoints }}
+traefik.http.routers.slovo-minio-console.tls={{ slovo_minio_container_labels_traefik_console_tls | to_json }}
+{% if slovo_minio_container_labels_traefik_console_tls %}
+traefik.http.routers.slovo-minio-console.tls.certResolver={{ slovo_minio_container_labels_traefik_console_tls_certResolver }}
+{% endif %}
+
+# Console service (different port from API)
+traefik.http.services.slovo-minio-console.loadbalancer.server.port=9001
+
+{% endif %}

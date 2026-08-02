@@ -1,0 +1,28 @@
+---
+
+# Base path for all slovo data
+slovo_base_data_path: "/slovo"
+slovo_base_data_path_mode: "750"
+
+# System user/group
+slovo_user_name: "slovo"
+slovo_user_system: true
+slovo_user_shell: /sbin/nologin
+slovo_group_name: "slovo"
+slovo_group_system: true
+
+# CRITICAL: uid/gid MUST be 1000 to match the backend image's `node` user (uid 1000).
+# The Dockerfile only sets `USER node` in dev/build stages, so the playbook enforces
+# uid 1000 at runtime via the systemd unit's `--user` flag.
+# Env/labels files are owned by slovo:slovo with mode 0640.
+# The container (running as uid 1000) must be able to read them.
+# If slovo uid != 1000, the backend container cannot read its env file and will fail to start.
+slovo_user_uid: 1000
+slovo_user_gid: 1000
+
+# Architecture detection
+slovo_architecture: "{{ 'amd64' if ansible_facts.architecture == 'x86_64' else ('arm64' if ansible_facts.architecture == 'aarch64' else ansible_facts.architecture) }}"
+
+# Reverse proxy
+slovo_playbook_reverse_proxy_type: ''  # '' or 'playbook-managed-traefik'
+slovo_playbook_reverse_proxy_container_network: "{{ 'traefik' if slovo_playbook_reverse_proxy_type == 'playbook-managed-traefik' else '' }}"

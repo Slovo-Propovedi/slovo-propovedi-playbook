@@ -1,0 +1,182 @@
+---
+# slovo-propovedi-playbook group_vars
+# This file wires together all roles (postgres, traefik, backend, minio, adminer)
+
+# =============================================================================
+# Docker configuration
+# =============================================================================
+
+docker_install_compose: false
+docker_install_compose_plugin: false
+
+# Controls whether the playbook installs Docker on the server.
+# Referenced by `setup.yml` (`when: docker_installation_enabled | bool`) to gate the `galaxy/docker` role.
+docker_installation_enabled: true
+
+# =============================================================================
+# Reverse proxy configuration
+# =============================================================================
+
+slovo_playbook_reverse_proxy_type: playbook-managed-traefik
+# `slovo_playbook_reverse_proxy_container_network` is computed by `slovo-base`
+# (defaults/main.yml) as `'traefik'` when the playbook-managed Traefik is used, else ''.
+slovo_playbook_traefik_labels_enabled: "{{ traefik_enabled | bool }}"
+
+# CRITICAL: the Traefik label `traefik.docker.network` for every Traefik-exposed service must point to the
+# shared reverse-proxy network (the one each service joins via its `*_container_additional_networks_auto`),
+# NOT the service's own primary network. Traefik can only reach a container through a network it shares with it.
+slovo_backend_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
+slovo_minio_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
+slovo_adminer_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
+
+# Each custom role gates its Traefik labels on `slovo_*_container_labels_traefik_enabled` (role default: true).
+# Wire them to the hub switch so that when Traefik is disabled, no service emits Traefik labels.
+slovo_backend_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
+slovo_minio_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
+slovo_adminer_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
+
+# =============================================================================
+# Postgres
+# =============================================================================
+
+postgres_enabled: true
+postgres_identifier: slovo-postgres
+postgres_architecture: "{{ slovo_architecture }}"
+postgres_base_path: "{{ slovo_base_data_path }}/postgres"
+postgres_uid: "{{ slovo_user_uid }}"
+postgres_gid: "{{ slovo_user_gid }}"
+
+# The postgres role creates a network with this name
+postgres_container_network: slovo-postgres
+
+# Database credentials (wired from backend vars)
+postgres_connection_username: "{{ slovo_backend_postgres_user }}"
+postgres_connection_password: "{{ slovo_backend_postgres_password }}"
+postgres_db_name: "{{ slovo_backend_postgres_db }}"
+
+# Databases to create on startup
+postgres_managed_databases_auto: |
+  {{
+    ([{'name': slovo_backend_postgres_db, 'username': slovo_backend_postgres_user, 'password': slovo_backend_postgres_password}])
+  }}
+
+# =============================================================================
+# Traefik
+# =============================================================================
+
+traefik_enabled: "{{ slovo_playbook_reverse_proxy_type == 'playbook-managed-traefik' }}"
+traefik_identifier: slovo-traefik
+traefik_base_path: "{{ slovo_base_data_path }}/traefik"
+traefik_uid: "{{ slovo_user_uid }}"
+traefik_gid: "{{ slovo_user_gid }}"
+
+# Increase read timeout for large file uploads (sermon audio/video)
+traefik_config_entrypoint_web_transport_respondingTimeouts_readTimeout: 300s
+traefik_config_entrypoint_web_secure_transport_respondingTimeouts_readTimeout: 300s
+
+traefik_systemd_required_services_list: "{{ [devture_systemd_docker_base_docker_service_name] }}"
+
+# =============================================================================
+# Backend (NestJS)
+# =============================================================================
+
+slovo_backend_enabled: true
+slovo_backend_identifier: slovo-backend
+slovo_backend_base_path: "{{ slovo_base_data_path }}/backend"
+
+# Primary network
+slovo_backend_container_network: slovo-backend
+
+# Postgres connection — reach by container name on shared network
+slovo_backend_postgres_host: "{{ postgres_identifier }}"
+
+# MinIO connection — reach by container name on shared network
+slovo_backend_minio_endpoint: "{{ slovo_minio_identifier }}"
+slovo_backend_minio_main_port_in: 9000
+
+# Cross-network joins: backend must reach traefik (for routing) + postgres (DB) + minio (S3)
+slovo_backend_container_additional_networks_auto: |
+  {{
+    ([slovo_playbook_reverse_proxy_container_network] if slovo_playbook_traefik_labels_enabled and slovo_playbook_reverse_proxy_container_network else [])
+    + ([postgres_container_network] if postgres_enabled else [])
+    + ([slovo_minio_container_network] if slovo_minio_enabled else [])
+  }}
+
+# Backend depends on postgres and minio being up
+slovo_backend_systemd_required_services_list_auto: |
+  {{
+    ([postgres_identifier + '.service'] if postgres_enabled else [])
+    + ([slovo_minio_identifier + '.service'] if slovo_minio_enabled else [])
+  }}
+
+# =============================================================================
+# MinIO
+# =============================================================================
+
+slovo_minio_enabled: true
+slovo_minio_identifier: slovo-minio
+slovo_minio_base_path: "{{ slovo_base_data_path }}/minio"
+
+# Primary network
+slovo_minio_container_network: slovo-minio
+
+# Cross-network joins: minio must reach traefik (for API + console routing)
+slovo_minio_container_additional_networks_auto: |
+  {{
+    ([slovo_playbook_reverse_proxy_container_network] if slovo_playbook_traefik_labels_enabled and slovo_playbook_reverse_proxy_container_network else [])
+  }}
+
+# Backend MinIO credentials — wired from MinIO's root credentials (no credential drift).
+# The backend shares the same credentials the MinIO server itself uses.
+slovo_backend_minio_access_key: "{{ slovo_minio_root_user }}"
+slovo_backend_minio_secret_key: "{{ slovo_minio_root_password }}"
+slovo_backend_minio_public_uri: "https://{{ slovo_minio_hostname }}"
+
+# =============================================================================
+# Adminer
+# =============================================================================
+
+slovo_adminer_enabled: true
+slovo_adminer_identifier: slovo-adminer
+slovo_adminer_base_path: "{{ slovo_base_data_path }}/adminer"
+
+# Primary network
+slovo_adminer_container_network: slovo-adminer
+
+# Cross-network joins: adminer must reach traefik (web UI) + postgres (DB)
+slovo_adminer_container_additional_networks_auto: |
+  {{
+    ([slovo_playbook_reverse_proxy_container_network] if slovo_playbook_traefik_labels_enabled and slovo_playbook_reverse_proxy_container_network else [])
+    + ([postgres_container_network] if postgres_enabled else [])
+  }}
+
+# Adminer depends on postgres being up
+slovo_adminer_systemd_required_services_list_auto: |
+  {{
+    ([postgres_identifier + '.service'] if postgres_enabled else [])
+  }}
+
+# =============================================================================
+# Admin user seeding
+# =============================================================================
+
+slovo_admin_user_enabled: true
+
+# =============================================================================
+# Service registry for systemd_service_manager
+# =============================================================================
+# Lower priority = starts first, stops last
+# Order: traefik (250) → postgres (500) → minio (600) → backend (2000) → adminer (2100)
+
+# Only restart services whose configuration actually changed when running install-* tags.
+# When running setup-* tags (or no tags), restart everything unconditionally.
+devture_systemd_service_manager_conditional_restart_enabled: "{{ ansible_run_tags | select('match', 'setup-') | list | length == 0 }}"
+
+devture_systemd_service_manager_services_list_auto: |
+  {{
+    ([{'name': 'slovo-traefik.service', 'priority': 250, 'restart_necessary': traefik_restart_necessary | bool, 'groups': ['slovo', 'traefik']}] if traefik_enabled else [])
+    + ([{'name': 'slovo-postgres.service', 'priority': 500, 'restart_necessary': postgres_restart_necessary | bool, 'groups': ['slovo', 'postgres']}] if postgres_enabled else [])
+    + ([{'name': 'slovo-minio.service', 'priority': 600, 'restart_necessary': slovo_minio_restart_necessary | bool, 'groups': ['slovo', 'minio']}] if slovo_minio_enabled else [])
+    + ([{'name': 'slovo-backend.service', 'priority': 2000, 'restart_necessary': slovo_backend_restart_necessary | bool, 'groups': ['slovo', 'backend']}] if slovo_backend_enabled else [])
+    + ([{'name': 'slovo-adminer.service', 'priority': 2100, 'restart_necessary': slovo_adminer_restart_necessary | bool, 'groups': ['slovo', 'adminer']}] if slovo_adminer_enabled else [])
+  }}
