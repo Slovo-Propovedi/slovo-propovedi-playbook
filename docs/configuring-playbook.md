@@ -158,7 +158,7 @@ slovo_admin_user_password: CHANGE_ME_admin_password
 - **Admin user seeding** — the playbook can insert the first admin user into the database. This is a **separate, on-demand step** (see below), and it requires `slovo_admin_user_email` and `slovo_admin_user_password` to be set.
 
 > [!NOTE]
-> The `group_vars/slovo_servers/main.yml` file wires most cross-service settings (container names, networks, dependencies) for you. If you override a value there, make sure you know what it feeds into — for example, `slovo_user_uid` must stay `1000` to match the backend container's `node` user (see [Deploying the backend](deploying-backend.md)).
+> The `group_vars/slovo_servers/main.yml` file wires most cross-service settings (container names, networks, dependencies) for you. If you override a value there, make sure you know what it feeds into — for example, `slovo_user_uid`/`slovo_user_gid` are auto-assigned by the system and feed into every container's `--user` flag (see [Deploying the backend](deploying-backend.md)).
 
 ## Installing
 

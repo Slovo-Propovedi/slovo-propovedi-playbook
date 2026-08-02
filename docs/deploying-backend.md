@@ -135,18 +135,20 @@ To change these, modify the source code and redeploy — setting the env vars ha
 
 ## Container user
 
-The `backend/Dockerfile` sets `USER node` (uid 1000) only in the **dev** and **build** stages — the **production** stage does not, so the image would run as root by default. To match the image's `node` user, the playbook runs the container as uid 1000 via the systemd unit's `--user` flag (see `slovo-backend.service.j2`), and `slovo_user_uid` is set to `1000`:
+The `backend/Dockerfile` sets `USER node` (uid 1000) only in the **dev** and **build** stages — the **production** stage does not, so the image would run as root by default. The playbook therefore runs the container with the systemd unit's `--user` flag set to the `slovo` user's uid/gid (see `slovo-backend.service.j2`), so the container always runs as a non-root user.
+
+The `slovo` user's uid/gid are **auto-assigned by the system** when the playbook creates the user (exactly like the matrix reference playbook does) — they are not hardcoded to `1000`:
 
 ```yaml
-# group_vars/slovo_servers/main.yml (via roles/custom/slovo-base/defaults/main.yml)
-slovo_user_uid: 1000
-slovo_user_gid: 1000
+# roles/custom/slovo-base/defaults/main.yml
+slovo_user_uid: ~
+slovo_user_gid: ~
 ```
 
-The env and labels files are written owned by `slovo:slovo` (uid 1000) with mode `0640`, which makes them readable by the container (running as uid 1000).
+After creating the user, the playbook discovers the actual assigned uid/gid and uses them for the `--user` flag. The env and labels files are written owned by `slovo:slovo` with mode `0640`, and the container runs as the same `slovo` uid, so the files are always readable by the container — regardless of the specific numeric uid/gid the system assigned.
 
 > [!IMPORTANT]
-> Do **not** change `slovo_user_uid`/`slovo_user_gid` — if the `slovo` user's uid is not 1000, the backend container cannot read its env file and will fail to start.
+> Do **not** set `slovo_user_uid`/`slovo_user_gid` unless you have a specific reason — they are auto-assigned so the container `--user` always matches the `slovo` user. If you do set them, make sure the uid/gid are not already taken on the server (a conflict makes the `slovo-base` role fail).
 
 ## No dev bind-mount in production
 
@@ -157,7 +159,7 @@ Additionally, the container is started with:
 - `--read-only` — the root filesystem is read-only.
 - `--tmpfs=/tmp:rw,noexec,nosuid,size=1024m` — a writable tmpfs at `/tmp` for temporary files (NestJS/Node may write temp files during uploads).
 - `--cap-drop=ALL` — no capabilities.
-- `--user=1000:1000` — runs as uid 1000 (matching the image's `node` user uid).
+- `--user={{ slovo_user_uid }}:{{ slovo_user_gid }}` — runs as the `slovo` user's auto-assigned uid/gid (the owner of the env/labels files).
 
 ## Troubleshooting
 

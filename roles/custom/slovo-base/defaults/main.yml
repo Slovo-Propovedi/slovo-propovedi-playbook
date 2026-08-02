@@ -11,14 +11,11 @@ slovo_user_shell: /sbin/nologin
 slovo_group_name: "slovo"
 slovo_group_system: true
 
-# CRITICAL: uid/gid MUST be 1000 to match the backend image's `node` user (uid 1000).
-# The Dockerfile only sets `USER node` in dev/build stages, so the playbook enforces
-# uid 1000 at runtime via the systemd unit's `--user` flag.
-# Env/labels files are owned by slovo:slovo with mode 0640.
-# The container (running as uid 1000) must be able to read them.
-# If slovo uid != 1000, the backend container cannot read its env file and will fail to start.
-slovo_user_uid: 1000
-slovo_user_gid: 1000
+# Let the system auto-assign uid/gid (like the matrix reference playbook does).
+# The container runs as --user={{ slovo_user_uid }}:{{ slovo_user_gid }} via systemd,
+# and env/labels files are owned by slovo:slovo, so they're readable regardless of the actual uid/gid.
+slovo_user_uid: ~
+slovo_user_gid: ~
 
 # Architecture detection
 slovo_architecture: "{{ 'amd64' if ansible_facts.architecture == 'x86_64' else ('arm64' if ansible_facts.architecture == 'aarch64' else ansible_facts.architecture) }}"
