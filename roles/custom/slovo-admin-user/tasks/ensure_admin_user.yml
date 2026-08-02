@@ -28,6 +28,11 @@
   changed_when: false
   no_log: true
 
+- name: Ensure python3-bcrypt is installed
+  ansible.builtin.apt:
+    name: python3-bcrypt
+    state: present
+
 - name: Generate bcrypt hash for admin user password
   ansible.builtin.shell:
     cmd: "python3 -c \"import bcrypt, sys; print(bcrypt.hashpw(sys.stdin.buffer.read().strip(), bcrypt.gensalt(10)).decode())\""
