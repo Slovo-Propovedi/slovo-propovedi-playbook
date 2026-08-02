@@ -179,4 +179,17 @@ devture_systemd_service_manager_services_list_auto: |
     + ([{'name': 'slovo-minio.service', 'priority': 600, 'restart_necessary': slovo_minio_restart_necessary | bool, 'groups': ['slovo', 'minio']}] if slovo_minio_enabled else [])
     + ([{'name': 'slovo-backend.service', 'priority': 2000, 'restart_necessary': slovo_backend_restart_necessary | bool, 'groups': ['slovo', 'backend']}] if slovo_backend_enabled else [])
     + ([{'name': 'slovo-adminer.service', 'priority': 2100, 'restart_necessary': slovo_adminer_restart_necessary | bool, 'groups': ['slovo', 'adminer']}] if slovo_adminer_enabled else [])
-  }}
+   }}
+
+# =============================================================================
+# Playbook state preserver
+# =============================================================================
+# Preserves vars.yml and the playbook commit hash on the server so they can be
+# restored if lost.  The uid/gid are set as facts by the slovo-base role which
+# runs earlier in setup.yml.
+
+devture_playbook_state_preserver_uid: "{{ slovo_user_uid }}"
+devture_playbook_state_preserver_gid: "{{ slovo_user_gid }}"
+
+devture_playbook_state_preserver_vars_preservation_dst: "{{ slovo_base_data_path }}/vars.yml"
+devture_playbook_state_preserver_commit_hash_preservation_dst: "{{ slovo_base_data_path }}/git_hash.yml"
