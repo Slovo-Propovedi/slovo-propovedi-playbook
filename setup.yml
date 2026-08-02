@@ -31,11 +31,6 @@
         - install-all
 
     - role: galaxy/postgres
-      tags:
-        - setup-postgres
-        - setup-all
-        - install-postgres
-        - install-all
 
     - role: custom/slovo-minio
       tags:
@@ -66,17 +61,9 @@
         - ensure-users-created
 
     - role: galaxy/traefik
-      tags:
-        - setup-traefik
-        - setup-all
-        - install-traefik
-        - install-all
 
     - when: devture_systemd_service_manager_services_list_auto | length > 0
       role: galaxy/systemd_service_manager
-      tags:
-        - setup-all
-        - install-all
 
     - when: devture_playbook_state_preserver_enabled | bool
       role: galaxy/playbook_state_preserver
@@ -85,6 +72,3 @@
         - install-all
 
     - role: galaxy/playbook_runtime_messages
-      tags:
-        - setup-all
-        - install-all
