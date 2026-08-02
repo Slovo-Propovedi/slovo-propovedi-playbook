@@ -1,0 +1,37 @@
+#jinja2: lstrip_blocks: True
+[Unit]
+Description=slovo-frontend
+{% for service in slovo_frontend_systemd_required_services_list %}
+Requires={{ service }}
+After={{ service }}
+{% endfor %}
+DefaultDependencies=no
+
+[Service]
+Type=simple
+Environment="HOME={{ devture_systemd_docker_base_systemd_unit_home_path }}"
+ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} slovo-frontend 2>/dev/null || true'
+ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} rm slovo-frontend 2>/dev/null || true'
+ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
+    --rm \
+    --name=slovo-frontend \
+    --log-driver=none \
+    --user={{ slovo_user_uid }}:{{ slovo_user_gid }} \
+    --cap-drop=ALL \
+    --network={{ slovo_frontend_container_network }} \
+    --label-file={{ slovo_frontend_base_path }}/labels \
+    {% for arg in slovo_frontend_container_extra_arguments %}
+    {{ arg }} \
+    {% endfor %}
+    {{ slovo_frontend_container_image }}
+{% for network in slovo_frontend_container_additional_networks %}
+ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} network connect {{ network }} slovo-frontend
+{% endfor %}
+ExecStart={{ devture_systemd_docker_base_host_command_docker }} start --attach slovo-frontend
+ExecStop=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} slovo-frontend 2>/dev/null || true'
+Restart=always
+RestartSec=30
+SyslogIdentifier=slovo-frontend
+
+[Install]
+WantedBy=multi-user.target

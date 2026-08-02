@@ -1,0 +1,36 @@
+---
+
+- name: Check existence of slovo-frontend service
+  ansible.builtin.stat:
+    path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-frontend.service"
+  register: slovo_frontend_service_stat
+
+- when: slovo_frontend_service_stat.stat.exists | bool
+  block:
+    - name: Ensure slovo-frontend is stopped
+      ansible.builtin.service:
+        name: slovo-frontend
+        state: stopped
+        enabled: false
+        daemon_reload: true
+
+    - name: Ensure slovo-frontend.service doesn't exist
+      ansible.builtin.file:
+        path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-frontend.service"
+        state: absent
+
+- name: Ensure slovo-frontend container doesn't exist
+  ansible.builtin.command:
+    cmd: "{{ devture_systemd_docker_base_host_command_docker }} rm -f slovo-frontend"
+  register: slovo_frontend_container_removal_result
+  changed_when: slovo_frontend_container_removal_result.rc == 0
+  failed_when: >-
+    slovo_frontend_container_removal_result.rc != 0
+    and 'No such container' not in slovo_frontend_container_removal_result.stderr
+    and 'no such container' not in slovo_frontend_container_removal_result.stderr
+
+- name: Ensure slovo-frontend paths don't exist
+  ansible.builtin.file:
+    path: "{{ slovo_frontend_base_path }}"
+    state: absent
+  when: "slovo_frontend_uninstall_remove_data | default(false) | bool"

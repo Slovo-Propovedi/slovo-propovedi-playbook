@@ -1,0 +1,76 @@
+---
+
+# slovo-frontend is the React SPA for slovo-propovedi.
+# Project source code URL: https://github.com/egoreast/slovo-propovedi-admin
+# The container image is built locally from the repository (see `frontend/web-app/Dockerfile` in the repo).
+
+slovo_frontend_enabled: true
+
+# The identifier used for the container name and the systemd service name.
+slovo_frontend_identifier: "slovo-frontend"
+
+# The hostname at which slovo-frontend is served.
+slovo_frontend_hostname: ''
+
+# The path at which slovo-frontend is served.
+# This value must either be `/` or not end with a slash (e.g. `/app`).
+slovo_frontend_path_prefix: /
+
+slovo_frontend_base_path: "{{ slovo_base_data_path }}/frontend"
+
+# Self-build (the container image is built locally from the git repository).
+slovo_frontend_container_image_self_build: true
+slovo_frontend_container_image_self_build_repo: "https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-admin.git"
+slovo_frontend_container_image_self_build_repo_version: "master"
+slovo_frontend_container_src_path: "{{ slovo_frontend_base_path }}/container-src"
+
+# The locally-built container image name.
+slovo_frontend_container_image: "{{ slovo_frontend_identifier }}:latest"
+
+# The port nginx listens on inside the container (non-root, no special capabilities needed).
+slovo_frontend_container_port: 8080
+
+# The base container network. It will be auto-created by this role if it doesn't exist already.
+slovo_frontend_container_network: ''
+
+# A list of additional container networks that the container would be connected to.
+# The role does not create these networks, so make sure they already exist.
+slovo_frontend_container_additional_networks: "{{ slovo_frontend_container_additional_networks_default + slovo_frontend_container_additional_networks_auto + slovo_frontend_container_additional_networks_custom }}"
+slovo_frontend_container_additional_networks_default: []
+slovo_frontend_container_additional_networks_auto: []
+slovo_frontend_container_additional_networks_custom: []
+
+# slovo_frontend_container_labels_traefik_enabled controls whether labels to assist a Traefik reverse-proxy will be attached to the container.
+# See `../templates/labels.j2` for details.
+slovo_frontend_container_labels_traefik_enabled: true
+slovo_frontend_container_labels_traefik_docker_network: "{{ slovo_frontend_container_network }}"
+slovo_frontend_container_labels_traefik_hostname: "{{ slovo_frontend_hostname }}"
+# The path prefix must either be `/` or not end with a slash (e.g. `/app`).
+slovo_frontend_container_labels_traefik_path_prefix: "{{ slovo_frontend_path_prefix }}"
+slovo_frontend_container_labels_traefik_rule: "Host(`{{ slovo_frontend_container_labels_traefik_hostname }}`){% if slovo_frontend_container_labels_traefik_path_prefix != '/' %} && PathPrefix(`{{ slovo_frontend_container_labels_traefik_path_prefix }}`){% endif %}"
+slovo_frontend_container_labels_traefik_entrypoints: web-secure
+slovo_frontend_container_labels_traefik_tls: "{{ slovo_frontend_container_labels_traefik_entrypoints != 'web' }}"
+slovo_frontend_container_labels_traefik_tls_certResolver: default  # noqa var-naming
+
+# A list of extra arguments to pass to the container.
+# The frontend container is NOT read-only — nginx needs to write temp/cache files.
+slovo_frontend_container_extra_arguments: []
+
+# List of systemd services that slovo-frontend.service depends on
+slovo_frontend_systemd_required_services_list: "{{ slovo_frontend_systemd_required_services_list_default + slovo_frontend_systemd_required_services_list_auto + slovo_frontend_systemd_required_services_list_custom }}"
+slovo_frontend_systemd_required_services_list_default: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
+slovo_frontend_systemd_required_services_list_auto: []
+slovo_frontend_systemd_required_services_list_custom: []
+
+# Controls whether uninstall also removes all data (defaults to false).
+slovo_frontend_uninstall_remove_data: false
+
+# slovo_frontend_restart_necessary controls whether the service
+# will be restarted (when true) or merely started (when false) by the
+# systemd service manager role (when conditional restart is enabled).
+#
+# This value is automatically computed during installation based on whether
+# any configuration files, the systemd service file, or the container image changed.
+# The default of `false` means "no restart needed" — appropriate when the role's
+# installation tasks haven't run (e.g., due to --tags skipping them).
+slovo_frontend_restart_necessary: false

@@ -26,12 +26,14 @@ slovo_playbook_traefik_labels_enabled: "{{ traefik_enabled | bool }}"
 # shared reverse-proxy network (the one each service joins via its `*_container_additional_networks_auto`),
 # NOT the service's own primary network. Traefik can only reach a container through a network it shares with it.
 slovo_backend_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
+slovo_frontend_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
 slovo_minio_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
 slovo_adminer_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
 
 # Each custom role gates its Traefik labels on `slovo_*_container_labels_traefik_enabled` (role default: true).
 # Wire them to the hub switch so that when Traefik is disabled, no service emits Traefik labels.
 slovo_backend_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
+slovo_frontend_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
 slovo_minio_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
 slovo_adminer_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
 
@@ -110,6 +112,27 @@ slovo_backend_systemd_required_services_list_auto: |
   }}
 
 # =============================================================================
+# Frontend (React SPA)
+# =============================================================================
+
+slovo_frontend_enabled: true
+slovo_frontend_identifier: slovo-frontend
+slovo_frontend_base_path: "{{ slovo_base_data_path }}/frontend"
+
+# Primary network
+slovo_frontend_container_network: slovo-frontend
+
+# Cross-network joins: frontend only needs traefik (for routing)
+slovo_frontend_container_additional_networks_auto: |
+  {{
+    ([slovo_playbook_reverse_proxy_container_network] if slovo_playbook_traefik_labels_enabled and slovo_playbook_reverse_proxy_container_network else [])
+  }}
+
+# Frontend depends on traefik being up (for routing)
+# No postgres/minio dependency — frontend is static
+slovo_frontend_systemd_required_services_list_auto: []
+
+# =============================================================================
 # MinIO
 # =============================================================================
 
@@ -166,7 +189,7 @@ slovo_admin_user_enabled: true
 # Service registry for systemd_service_manager
 # =============================================================================
 # Lower priority = starts first, stops last
-# Order: traefik (250) → postgres (500) → minio (600) → backend (2000) → adminer (2100)
+# Order: traefik (250) → postgres (500) → minio (600) → backend (2000) → frontend (2050) → adminer (2100)
 
 # Only restart services whose configuration actually changed when running install-* tags.
 # When running setup-* tags (or no tags), restart everything unconditionally.
@@ -178,6 +201,7 @@ devture_systemd_service_manager_services_list_auto: |
     + ([{'name': 'slovo-postgres.service', 'priority': 500, 'restart_necessary': postgres_restart_necessary | bool, 'groups': ['slovo', 'postgres']}] if postgres_enabled else [])
     + ([{'name': 'slovo-minio.service', 'priority': 600, 'restart_necessary': slovo_minio_restart_necessary | bool, 'groups': ['slovo', 'minio']}] if slovo_minio_enabled else [])
     + ([{'name': 'slovo-backend.service', 'priority': 2000, 'restart_necessary': slovo_backend_restart_necessary | bool, 'groups': ['slovo', 'backend']}] if slovo_backend_enabled else [])
+    + ([{'name': 'slovo-frontend.service', 'priority': 2050, 'restart_necessary': slovo_frontend_restart_necessary | bool, 'groups': ['slovo', 'frontend']}] if slovo_frontend_enabled else [])
     + ([{'name': 'slovo-adminer.service', 'priority': 2100, 'restart_necessary': slovo_adminer_restart_necessary | bool, 'groups': ['slovo', 'adminer']}] if slovo_adminer_enabled else [])
    }}
 

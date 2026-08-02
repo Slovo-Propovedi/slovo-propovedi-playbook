@@ -46,6 +46,13 @@
         - install-slovo-backend
         - install-all
 
+    - role: custom/slovo-frontend
+      tags:
+        - setup-slovo-frontend
+        - setup-all
+        - install-slovo-frontend
+        - install-all
+
     - role: custom/slovo-adminer
       tags:
         - setup-slovo-adminer

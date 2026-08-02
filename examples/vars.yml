@@ -35,6 +35,11 @@ slovo_backend_jwt_refresh_secret: CHANGE_ME_different_random_string
 # slovo_backend_minio_main_port_in is set in group_vars to 9000
 
 # =============================================================================
+# Frontend (React SPA)
+# =============================================================================
+slovo_frontend_hostname: example.com
+
+# =============================================================================
 # MinIO
 # =============================================================================
 slovo_minio_hostname: minio-api.example.com
