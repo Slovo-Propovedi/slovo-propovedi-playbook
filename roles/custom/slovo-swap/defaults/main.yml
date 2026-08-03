@@ -1,0 +1,18 @@
+---
+
+# slovo-swap configures a swap file for VPS boxes with limited RAM.
+# A 2GB swapfile gives a 1 CPU / 2GB RAM server headroom against OOM-killer
+# kills when memory spikes (backend self-builds, MinIO uploads, etc.).
+
+slovo_swap_enabled: true
+
+# The size of the swap file, in MiB.
+slovo_swap_size_mb: 2048
+
+# The path of the swap file (must be on a filesystem that supports fallocate,
+# e.g. ext4; the role falls back to `dd` otherwise).
+slovo_swap_file: /swapfile
+
+# The vm.swappiness value (0-100). Lower values keep process memory in RAM
+# longer and only push pages to swap when the box is under real pressure.
+slovo_swap_swappiness: 10

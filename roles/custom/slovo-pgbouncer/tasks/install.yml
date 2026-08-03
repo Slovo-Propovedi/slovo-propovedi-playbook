@@ -1,0 +1,62 @@
+---
+
+- name: Ensure slovo-pgbouncer paths exist
+  ansible.builtin.file:
+    path: "{{ slovo_pgbouncer_base_path }}"
+    state: directory
+    mode: '0750'
+    owner: "{{ slovo_user_name }}"
+    group: "{{ slovo_group_name }}"
+
+- name: Ensure slovo-pgbouncer env file installed
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/env.j2"
+    dest: "{{ slovo_pgbouncer_base_path }}/env"
+    mode: '0640'
+    owner: "{{ slovo_user_name }}"
+    group: "{{ slovo_group_name }}"
+  register: slovo_pgbouncer_env_file_changed
+
+- name: Ensure slovo-pgbouncer labels file installed
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/labels.j2"
+    dest: "{{ slovo_pgbouncer_base_path }}/labels"
+    mode: '0640'
+    owner: "{{ slovo_user_name }}"
+    group: "{{ slovo_group_name }}"
+  register: slovo_pgbouncer_labels_file_changed
+
+- name: Ensure slovo-pgbouncer container image is pulled
+  community.docker.docker_image_pull:
+    name: "{{ slovo_pgbouncer_container_image }}"
+    pull: always
+  when: "not slovo_pgbouncer_container_image_self_build | bool"
+  register: slovo_pgbouncer_container_image_pull_changed
+  retries: "{{ devture_playbook_help_container_retries_count }}"
+  delay: "{{ devture_playbook_help_container_retries_delay }}"
+  until: slovo_pgbouncer_container_image_pull_changed is not failed
+
+- name: Ensure slovo-pgbouncer container network is created
+  when: slovo_pgbouncer_container_network != 'host'
+  community.general.docker_network:
+    enable_ipv6: "{{ devture_systemd_docker_base_ipv6_enabled }}"
+    name: "{{ slovo_pgbouncer_container_network }}"
+    driver: bridge
+    driver_options: "{{ devture_systemd_docker_base_container_networks_driver_options }}"
+
+- name: Ensure slovo-pgbouncer.service installed
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/systemd/slovo-pgbouncer.service.j2"
+    dest: "{{ devture_systemd_docker_base_systemd_path }}/slovo-pgbouncer.service"
+    mode: '0644'
+  register: slovo_pgbouncer_systemd_unit_changed
+
+- name: Determine whether slovo-pgbouncer needs a restart
+  ansible.builtin.set_fact:
+    slovo_pgbouncer_restart_necessary: >-
+      {{
+        slovo_pgbouncer_env_file_changed.changed | default(false)
+        or slovo_pgbouncer_labels_file_changed.changed | default(false)
+        or slovo_pgbouncer_container_image_pull_changed.changed | default(false)
+        or slovo_pgbouncer_systemd_unit_changed.changed | default(false)
+      }}

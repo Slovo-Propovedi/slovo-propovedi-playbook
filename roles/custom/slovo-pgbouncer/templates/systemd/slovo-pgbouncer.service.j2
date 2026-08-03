@@ -1,0 +1,41 @@
+#jinja2: lstrip_blocks: True
+[Unit]
+Description=slovo-pgbouncer
+{% for service in slovo_pgbouncer_systemd_required_services_list %}
+Requires={{ service }}
+After={{ service }}
+{% endfor %}
+DefaultDependencies=no
+
+[Service]
+Type=simple
+Environment="HOME={{ devture_systemd_docker_base_systemd_unit_home_path }}"
+# NOTE: no `--user` flag here — the edoburu/pgbouncer image entrypoint writes
+# its generated config (pgbouncer.ini, userlist.txt) to /etc/pgbouncer at
+# startup, which requires root. The container is internal-only, memory-limited
+# (--memory=64m) and cap-dropped (--cap-drop=ALL).
+ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} slovo-pgbouncer 2>/dev/null || true'
+ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} rm slovo-pgbouncer 2>/dev/null || true'
+ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
+    --rm \
+    --name=slovo-pgbouncer \
+    --log-driver=none \
+    --cap-drop=ALL \
+    --network={{ slovo_pgbouncer_container_network }} \
+    --env-file={{ slovo_pgbouncer_base_path }}/env \
+    --label-file={{ slovo_pgbouncer_base_path }}/labels \
+    {% for arg in slovo_pgbouncer_container_extra_arguments %}
+    {{ arg }} \
+    {% endfor %}
+    {{ slovo_pgbouncer_container_image }}
+{% for network in slovo_pgbouncer_container_additional_networks %}
+ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} network connect {{ network }} slovo-pgbouncer
+{% endfor %}
+ExecStart={{ devture_systemd_docker_base_host_command_docker }} start --attach slovo-pgbouncer
+ExecStop=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} slovo-pgbouncer 2>/dev/null || true'
+Restart=always
+RestartSec=30
+SyslogIdentifier=slovo-pgbouncer
+
+[Install]
+WantedBy=multi-user.target

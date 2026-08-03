@@ -1,0 +1,87 @@
+---
+
+# slovo-pgbouncer is a connection pooler in front of the slovo-postgres database.
+# It is an INTERNAL service: it has no Traefik labels, no hostname, and is never
+# exposed to the internet. It pools the backend's DB connections so that postgres
+# (max_connections capped at 20 for a 2GB VPS) only ever sees a handful of them.
+#
+# Project source code URL: https://github.com/edoburu/docker-pgbouncer
+# The container image is pulled from the official registry.
+
+slovo_pgbouncer_enabled: true
+
+# The identifier used for the container name and the systemd service name.
+slovo_pgbouncer_identifier: "slovo-pgbouncer"
+
+# The container image to use.
+slovo_pgbouncer_container_image: "edoburu/pgbouncer:latest"
+
+# The port PgBouncer listens on (inside the container, on the shared Docker network).
+#
+# NOTE: this is deliberately 5432, NOT 6432. The backend source hardcodes
+# POSTGRES_PORT=5432 (see docs/deploying-backend.md) and cannot be told to use
+# another port, so PgBouncer must listen on 5432 for the backend to reach it.
+# It is a separate container from postgres, so both can use port 5432 on the
+# same Docker network without conflict — `slovo-postgres:5432` and
+# `slovo-pgbouncer:5432` resolve to different containers.
+slovo_pgbouncer_container_port: 5432
+
+slovo_pgbouncer_base_path: "{{ slovo_base_data_path }}/pgbouncer"
+
+# Self-build (not needed for PgBouncer — the official image is used).
+slovo_pgbouncer_container_image_self_build: false
+
+# The base container network. It will be auto-created by this role if it doesn't exist already.
+slovo_pgbouncer_container_network: ''
+
+# A list of additional container networks that the container would be connected to.
+# The role does not create these networks, so make sure they already exist.
+slovo_pgbouncer_container_additional_networks: "{{ slovo_pgbouncer_container_additional_networks_default + slovo_pgbouncer_container_additional_networks_auto + slovo_pgbouncer_container_additional_networks_custom }}"
+slovo_pgbouncer_container_additional_networks_default: []
+slovo_pgbouncer_container_additional_networks_auto: []
+slovo_pgbouncer_container_additional_networks_custom: []
+
+# PgBouncer is internal — it deliberately has NO Traefik routing labels.
+# The labels file only contains `traefik.enable=false` as a defensive no-op.
+
+# A list of extra arguments to pass to the container.
+# VPS optimization: PgBouncer is tiny — cap it at 64MB.
+slovo_pgbouncer_container_extra_arguments:
+  - "--memory=64m"
+
+# List of systemd services that slovo-pgbouncer.service depends on
+slovo_pgbouncer_systemd_required_services_list: "{{ slovo_pgbouncer_systemd_required_services_list_default + slovo_pgbouncer_systemd_required_services_list_auto + slovo_pgbouncer_systemd_required_services_list_custom }}"
+slovo_pgbouncer_systemd_required_services_list_default: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
+slovo_pgbouncer_systemd_required_services_list_auto: []
+slovo_pgbouncer_systemd_required_services_list_custom: []
+
+# PostgreSQL server connection (wired from the postgres role vars in group_vars — no credential drift).
+slovo_pgbouncer_postgres_host: ''
+slovo_pgbouncer_postgres_port: 5432
+slovo_pgbouncer_postgres_username: ''
+slovo_pgbouncer_postgres_password: ''
+slovo_pgbouncer_postgres_dbname: ''
+
+# PgBouncer pool settings (see https://www.pgbouncer.org/config.html).
+# `transaction` mode is right for a NestJS/TypeORM workload: each transaction
+# gets a pooled server connection, and idle transactions return it to the pool.
+slovo_pgbouncer_pool_mode: transaction
+# Server connections held open per database.
+slovo_pgbouncer_default_pool_size: 5
+# Maximum number of client connections PgBouncer accepts (matches 200 concurrent users).
+slovo_pgbouncer_max_client_conn: 200
+# Maximum server connections per database (stays well under postgres max_connections=20).
+slovo_pgbouncer_max_db_connections: 10
+
+# slovo_pgbouncer_restart_necessary controls whether the service
+# will be restarted (when true) or merely started (when false) by the
+# systemd service manager role (when conditional restart is enabled).
+#
+# This value is automatically computed during installation based on whether
+# any configuration files, the systemd service file, or the container image changed.
+# The default of `false` means "no restart needed" — appropriate when the role's
+# installation tasks haven't run (e.g., due to --tags skipping them).
+slovo_pgbouncer_restart_necessary: false
+
+# Controls whether uninstall also removes all data (defaults to false).
+slovo_pgbouncer_uninstall_remove_data: false

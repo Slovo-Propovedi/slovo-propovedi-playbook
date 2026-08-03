@@ -67,12 +67,18 @@ slovo_backend_container_labels_traefik_api_rule: "Host(`{{ slovo_backend_contain
 slovo_backend_container_labels_traefik_api_entrypoints: "{{ slovo_backend_container_labels_traefik_entrypoints }}"
 slovo_backend_container_labels_traefik_api_tls: "{{ slovo_backend_container_labels_traefik_tls }}"
 slovo_backend_container_labels_traefik_api_tls_certResolver: "{{ slovo_backend_container_labels_traefik_tls_certResolver }}"
+# A comma-separated list of Traefik middlewares to attach to the API router (e.g. `slovo-rate-limit`).
+# Empty means no middleware is attached.
+slovo_backend_container_labels_traefik_api_middlewares: ''
 
 # A list of extra arguments to pass to the container.
 # The container runs read-only, but the backend (NestJS/Node) may need to write temporary files,
-# so a writable tmpfs is mounted at /tmp.
+# so a small writable tmpfs is mounted at /tmp.
+# VPS optimization: cap the tmpfs at 64MB (the default 1GB would eat half of a 2GB box)
+# and cap total container memory at 384MB (the Node heap is capped via NODE_OPTIONS).
 slovo_backend_container_extra_arguments:
-  - "--tmpfs=/tmp:rw,noexec,nosuid,size=1024m"
+  - "--tmpfs=/tmp:rw,noexec,nosuid,size=64m"
+  - "--memory=384m"
 
 # List of systemd services that slovo-backend.service depends on
 slovo_backend_systemd_required_services_list: "{{ slovo_backend_systemd_required_services_list_default + slovo_backend_systemd_required_services_list_auto + slovo_backend_systemd_required_services_list_custom }}"
@@ -84,6 +90,10 @@ slovo_backend_systemd_required_services_list_custom: []
 slovo_backend_jwt_secret: ''
 slovo_backend_jwt_refresh_secret: ''
 slovo_backend_postgres_host: ''
+# The port the backend connects to for PostgreSQL. The backend source currently
+# hardcodes 5432 (see docs/deploying-backend.md); the var is wired to the PgBouncer
+# port in group_vars so it stays in sync if the backend ever reads it.
+slovo_backend_postgres_port: 5432
 slovo_backend_postgres_user: 'slovo'
 slovo_backend_postgres_password: ''
 slovo_backend_postgres_db: 'slovo'

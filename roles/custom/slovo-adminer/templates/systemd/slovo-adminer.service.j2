@@ -19,7 +19,7 @@ ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
     --user={{ slovo_user_uid }}:{{ slovo_user_gid }} \
     --cap-drop=ALL \
     --read-only \
-    --tmpfs /tmp \
+    --tmpfs /tmp:rw,noexec,nosuid,size=16m \
     --network={{ slovo_adminer_container_network }} \
     --label-file={{ slovo_adminer_base_path }}/labels \
     {% for arg in slovo_adminer_container_extra_arguments %}

@@ -1,11 +1,20 @@
+# VPS optimization: cache public GET responses to /api/ (sermon lists etc.) in a
+# RAM-backed cache (tmpfs mounted at /var/cache/nginx). This directive is valid here
+# because this file is included inside the `http {}` block of nginx.conf.
+proxy_cache_path /var/cache/nginx/api_cache levels=1:2 keys_zone=api_cache:10m max_size=100m inactive=5m use_temp_path=off;
+
 server {
     listen 8080;
     server_name _;
     root /usr/share/nginx/html;
     index index.html;
 
-    # Security headers (repeated in location /assets/ because nginx does not
-    # inherit add_header directives into blocks that define their own).
+    # Buffer upload bodies on disk (overlay, 40GB), not in the small cache tmpfs.
+    # Large sermon audio/video uploads go through this nginx to the backend.
+    client_body_temp_path /tmp/nginx_client_temp;
+
+    # Security headers (repeated in location blocks that define their own add_header,
+    # because nginx does not inherit add_header directives into such blocks).
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -13,12 +22,31 @@ server {
 
     # The SPA calls the API through the relative /api path. Strip the prefix
     # and forward to the backend container on the shared Docker network.
+    #
+    # Caching rules: only GET/HEAD responses are ever cached by nginx (POST/PUT/DELETE
+    # — the admin write paths — are never cached). Requests carrying an Authorization
+    # header (authenticated/admin calls) bypass the cache entirely, both for reads
+    # (proxy_cache_bypass) and writes (proxy_no_cache). Only public GET requests
+    # (e.g. sermon lists) benefit from the cache.
     location /api/ {
         proxy_pass http://{{ slovo_frontend_backend_upstream }}/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_cache api_cache;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_cache_valid 200 5m;
+        proxy_cache_valid 404 1m;
+        proxy_cache_use_stale error timeout updating;
+        proxy_cache_bypass $http_authorization;
+        proxy_no_cache $http_authorization;
+        add_header X-Cache-Status $upstream_cache_status always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; connect-src 'self'; media-src 'self' https:;" always;
     }
 
     location /assets/ {

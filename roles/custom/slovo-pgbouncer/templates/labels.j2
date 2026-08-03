@@ -1,0 +1,5 @@
+# PgBouncer is an internal service — it is never exposed via Traefik.
+# `traefik.enable=false` is a defensive no-op that keeps Traefik's Docker
+# provider from ever routing to this container, even if it lands on a
+# Traefik-connected network.
+traefik.enable=false

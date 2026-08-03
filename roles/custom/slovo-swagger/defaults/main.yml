@@ -63,7 +63,9 @@ slovo_swagger_container_labels_traefik_tls_certResolver: default  # noqa var-nam
 # A list of extra arguments to pass to the container.
 # The container runs read-only; nginx needs writable tmpfs mounts at /tmp and
 # /var/cache/nginx, which are declared directly in the systemd service template.
-slovo_swagger_container_extra_arguments: []
+# VPS optimization: cap memory at 64MB.
+slovo_swagger_container_extra_arguments:
+  - "--memory=64m"
 
 # List of systemd services that slovo-swagger.service depends on
 slovo_swagger_systemd_required_services_list: "{{ slovo_swagger_systemd_required_services_list_default + slovo_swagger_systemd_required_services_list_auto + slovo_swagger_systemd_required_services_list_custom }}"

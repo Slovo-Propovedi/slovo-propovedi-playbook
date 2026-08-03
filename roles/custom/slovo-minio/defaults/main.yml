@@ -62,7 +62,11 @@ slovo_minio_container_labels_traefik_console_tls_certResolver: default  # noqa v
 
 # A list of extra arguments to pass to the container.
 # Unlike the backend, MinIO is not run read-only — it must write to its /data volume.
-slovo_minio_container_extra_arguments: []
+# VPS optimization: MinIO's default caches can exceed 1GB of RAM on a 2GB box,
+# so cap the container at 768MB (in-flight uploads/downloads are also throttled via
+# MINIO_API_REQUESTS_MAX in the env file).
+slovo_minio_container_extra_arguments:
+  - "--memory=768m"
 
 # List of systemd services that slovo-minio.service depends on
 slovo_minio_systemd_required_services_list: "{{ slovo_minio_systemd_required_services_list_default + slovo_minio_systemd_required_services_list_auto + slovo_minio_systemd_required_services_list_custom }}"

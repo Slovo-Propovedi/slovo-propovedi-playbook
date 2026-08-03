@@ -24,6 +24,9 @@ traefik.http.routers.slovo-backend-api.tls={{ slovo_backend_container_labels_tra
 {% if slovo_backend_container_labels_traefik_api_tls %}
 traefik.http.routers.slovo-backend-api.tls.certResolver={{ slovo_backend_container_labels_traefik_api_tls_certResolver }}
 {% endif %}
+{% if slovo_backend_container_labels_traefik_api_middlewares %}
+traefik.http.routers.slovo-backend-api.middlewares={{ slovo_backend_container_labels_traefik_api_middlewares }}
+{% endif %}
 {% endif %}
 
 {% endif %}

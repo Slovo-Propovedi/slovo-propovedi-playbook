@@ -1,0 +1,36 @@
+---
+
+- name: Check existence of slovo-pgbouncer service
+  ansible.builtin.stat:
+    path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-pgbouncer.service"
+  register: slovo_pgbouncer_service_stat
+
+- when: slovo_pgbouncer_service_stat.stat.exists | bool
+  block:
+    - name: Ensure slovo-pgbouncer is stopped
+      ansible.builtin.service:
+        name: slovo-pgbouncer
+        state: stopped
+        enabled: false
+        daemon_reload: true
+
+    - name: Ensure slovo-pgbouncer.service doesn't exist
+      ansible.builtin.file:
+        path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-pgbouncer.service"
+        state: absent
+
+- name: Ensure slovo-pgbouncer container doesn't exist
+  ansible.builtin.command:
+    cmd: "{{ devture_systemd_docker_base_host_command_docker }} rm -f slovo-pgbouncer"
+  register: slovo_pgbouncer_container_removal_result
+  changed_when: slovo_pgbouncer_container_removal_result.rc == 0
+  failed_when: >-
+    slovo_pgbouncer_container_removal_result.rc != 0
+    and 'No such container' not in slovo_pgbouncer_container_removal_result.stderr
+    and 'no such container' not in slovo_pgbouncer_container_removal_result.stderr
+
+- name: Ensure slovo-pgbouncer paths don't exist
+  ansible.builtin.file:
+    path: "{{ slovo_pgbouncer_base_path }}"
+    state: absent
+  when: "slovo_pgbouncer_uninstall_remove_data | default(false) | bool"

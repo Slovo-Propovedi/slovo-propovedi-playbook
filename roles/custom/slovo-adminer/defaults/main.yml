@@ -55,7 +55,10 @@ slovo_adminer_container_labels_traefik_tls_certResolver: default  # noqa var-nam
 # A list of extra arguments to pass to the container.
 # The container runs read-only, but Adminer (PHP) needs to write temporary files,
 # so a writable tmpfs is mounted at /tmp (see the systemd service template).
-slovo_adminer_container_extra_arguments: []
+# VPS optimization: cap memory at 128MB (PHP's memory_limit is not env-configurable
+# in the adminer image, so the Docker memory limit is the primary safeguard).
+slovo_adminer_container_extra_arguments:
+  - "--memory=128m"
 
 # List of systemd services that slovo-adminer.service depends on
 slovo_adminer_systemd_required_services_list: "{{ slovo_adminer_systemd_required_services_list_default + slovo_adminer_systemd_required_services_list_auto + slovo_adminer_systemd_required_services_list_custom }}"

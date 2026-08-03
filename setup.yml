@@ -12,6 +12,15 @@
 
     - role: galaxy/systemd_docker_base
 
+    # Swap is configured before slovo-base (and thus before any containers start),
+    # so the box has a safety net against OOM-killer kills from the very beginning.
+    - role: custom/slovo-swap
+      tags:
+        - setup-all
+        - install-all
+        - setup-slovo-swap
+        - install-slovo-swap
+
     - role: custom/slovo-base
       tags:
         - setup-all
@@ -31,6 +40,15 @@
         - install-all
 
     - role: galaxy/postgres
+
+    # PgBouncer runs right after postgres (its postgres network must exist first),
+    # and before the backend, which connects to the database through the pooler.
+    - role: custom/slovo-pgbouncer
+      tags:
+        - setup-slovo-pgbouncer
+        - setup-all
+        - install-slovo-pgbouncer
+        - install-all
 
     - role: custom/slovo-minio
       tags:

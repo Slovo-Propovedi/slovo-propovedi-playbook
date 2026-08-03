@@ -13,6 +13,25 @@ docker_install_compose_plugin: false
 # Referenced by `setup.yml` (`when: docker_installation_enabled | bool`) to gate the `galaxy/docker` role.
 docker_installation_enabled: true
 
+# Docker daemon options (written to /etc/docker/daemon.json).
+# Rotate container logs to keep the 40GB disk from filling up.
+docker_daemon_options:
+  log-driver: json-file
+  log-opts:
+    max-size: 10m
+    max-file: "3"
+
+# =============================================================================
+# Swap (VPS optimization: 2GB swap for a 1 CPU / 2GB RAM box)
+# =============================================================================
+# The slovo-swap role (registered early in setup.yml) creates a swap file and
+# tunes vm.swappiness. It gives the box headroom against OOM-killer kills when
+# memory spikes (backend self-builds, MinIO uploads, etc.).
+
+slovo_swap_enabled: true
+slovo_swap_size_mb: 2048
+slovo_swap_swappiness: 10
+
 # =============================================================================
 # Reverse proxy configuration
 # =============================================================================
@@ -64,6 +83,28 @@ postgres_managed_databases_auto: |
     ([{'name': slovo_backend_postgres_db, 'username': slovo_backend_postgres_user, 'password': slovo_backend_postgres_password}])
   }}
 
+# VPS optimization: 1 vCPU / 2GB RAM — pgtune overrides for a small server.
+#
+# NOTE: the postgres role's pgtune variables are expressed in KILOBYTES (see
+# `postgres_postgres_process_extra_arguments_default` in the role), so the
+# values below are the kB equivalents of the target sizes (128MB = 131072kB, etc.).
+postgres_shared_buffers: 131072 # 128MB
+postgres_max_connections: 20
+postgres_work_mem: 2048 # 2MB per sort/hash operation (20 connections * 2MB = 40MB worst case)
+postgres_effective_cache_size: 524288 # 512MB
+postgres_maintenance_work_mem: 32768 # 32MB
+postgres_max_wal_size: 1048576 # 1GB
+postgres_min_wal_size: 262144 # 256MB
+# The role's default formula would set `wal_buffers` to the whole of `shared_buffers`
+# for small shared_buffers values — cap it at a sane 4MB instead.
+postgres_wal_buffers: 4096 # 4MB
+
+# Runtime memory limit for the postgres container (shared_buffers 128MB + per-connection work_mem fits).
+postgres_container_extra_arguments: ["--memory=384m"]
+
+# A larger /dev/shm helps VACUUM, but 128MB is enough for a small server and keeps RAM tight.
+postgres_container_shm_size: 128m
+
 # =============================================================================
 # Traefik
 # =============================================================================
@@ -78,6 +119,24 @@ traefik_gid: "{{ slovo_user_gid }}"
 traefik_config_entrypoint_web_transport_respondingTimeouts_readTimeout: 300s
 traefik_config_entrypoint_web_secure_transport_respondingTimeouts_readTimeout: 300s
 
+# VPS optimization: 1 vCPU — gzip-only compression. zstd/brotli are CPU-heavy
+# and would steal cycles from the backend on a single-core box.
+traefik_config_http_middlewares_compression_middleware_config_encodings_zstd_enabled: false
+traefik_config_http_middlewares_compression_middleware_config_encodings_br_enabled: false
+# gzip stays enabled (role default).
+
+# Per-source-IP rate limiting for the public API router (api.<host>).
+# The middleware is defined here and referenced by the backend's API router
+# labels via `slovo_backend_container_labels_traefik_api_middlewares`.
+traefik_config_http_middlewares_custom:
+  slovo-rate-limit:
+    rateLimit:
+      average: 20
+      burst: 40
+
+# Runtime memory limit for the traefik container (galaxy role — override here).
+traefik_container_extra_arguments: ["--memory=128m"]
+
 traefik_systemd_required_services_list: "{{ [devture_systemd_docker_base_docker_service_name] }}"
 
 # =============================================================================
@@ -91,14 +150,19 @@ slovo_backend_base_path: "{{ slovo_base_data_path }}/backend"
 # Primary network
 slovo_backend_container_network: slovo-backend
 
-# Postgres connection — reach by container name on shared network
-slovo_backend_postgres_host: "{{ postgres_identifier }}"
+# Postgres connection — reach by container name on shared network.
+# When PgBouncer is enabled, the backend talks to the pooler instead of postgres directly.
+# PgBouncer listens on 5432 internally because the backend hardcodes POSTGRES_PORT=5432
+# (see docs/deploying-backend.md).
+slovo_backend_postgres_host: "{{ slovo_pgbouncer_identifier if slovo_pgbouncer_enabled | default(false) | bool else postgres_identifier }}"
+slovo_backend_postgres_port: "{{ slovo_pgbouncer_container_port if slovo_pgbouncer_enabled | default(false) | bool else postgres_connection_port }}"
 
 # MinIO connection — reach by container name on shared network
 slovo_backend_minio_endpoint: "{{ slovo_minio_identifier }}"
 slovo_backend_minio_main_port_in: 9000
 
-# Cross-network joins: backend must reach traefik (for routing) + postgres (DB) + minio (S3)
+# Cross-network joins: backend must reach traefik (for routing) + postgres (DB) + minio (S3).
+# PgBouncer joins the postgres network too, so the backend reaches it through that network.
 slovo_backend_container_additional_networks_auto: |
   {{
     ([slovo_playbook_reverse_proxy_container_network] if slovo_playbook_traefik_labels_enabled and slovo_playbook_reverse_proxy_container_network else [])
@@ -106,12 +170,17 @@ slovo_backend_container_additional_networks_auto: |
     + ([slovo_minio_container_network] if slovo_minio_enabled else [])
   }}
 
-# Backend depends on postgres and minio being up
+# Backend depends on postgres and minio being up (plus pgbouncer, when enabled)
 slovo_backend_systemd_required_services_list_auto: |
   {{
     ([postgres_identifier + '.service'] if postgres_enabled else [])
+    + ([slovo_pgbouncer_identifier + '.service'] if slovo_pgbouncer_enabled | default(false) | bool else [])
     + ([slovo_minio_identifier + '.service'] if slovo_minio_enabled else [])
   }}
+
+# Rate limiting: reference the `slovo-rate-limit` middleware defined in the Traefik section
+# on the API router. Empty means no middleware is attached.
+slovo_backend_container_labels_traefik_api_middlewares: "slovo-rate-limit"
 
 # =============================================================================
 # Frontend (Svelte 5 SPA)
@@ -222,6 +291,45 @@ slovo_adminer_systemd_required_services_list_auto: |
   }}
 
 # =============================================================================
+# PgBouncer (connection pooler in front of postgres)
+# =============================================================================
+# PgBouncer is an INTERNAL service: it has no Traefik labels, no hostname, and
+# is never exposed to the internet. It pools the backend's DB connections so
+# postgres only ever sees a handful of them (max_connections is capped at 20).
+
+slovo_pgbouncer_enabled: true
+slovo_pgbouncer_identifier: slovo-pgbouncer
+
+# The port PgBouncer listens on inside its container.
+# NOTE: this is deliberately 5432, NOT 6432 — the backend source hardcodes
+# POSTGRES_PORT=5432 (see docs/deploying-backend.md) and cannot be told to use
+# another port, so the pooler must listen on 5432 for the backend to reach it.
+slovo_pgbouncer_container_port: 5432
+
+# Primary network (own — for self-containment, following the per-service pattern)
+slovo_pgbouncer_container_network: slovo-pgbouncer
+
+# Cross-network joins: pgbouncer must reach postgres (and thereby be reachable
+# by the backend, which is already on the postgres network).
+slovo_pgbouncer_container_additional_networks_auto: |
+  {{
+    ([postgres_container_network] if postgres_enabled else [])
+  }}
+
+# PgBouncer depends on docker (default) + postgres (DB)
+slovo_pgbouncer_systemd_required_services_list_auto: |
+  {{
+    ([postgres_identifier + '.service'] if postgres_enabled else [])
+  }}
+
+# PostgreSQL server connection (wired from the postgres role vars — no credential drift).
+slovo_pgbouncer_postgres_host: "{{ postgres_identifier }}"
+slovo_pgbouncer_postgres_port: "{{ postgres_connection_port }}"
+slovo_pgbouncer_postgres_username: "{{ slovo_backend_postgres_user }}"
+slovo_pgbouncer_postgres_password: "{{ slovo_backend_postgres_password }}"
+slovo_pgbouncer_postgres_dbname: "{{ slovo_backend_postgres_db }}"
+
+# =============================================================================
 # Admin user seeding
 # =============================================================================
 
@@ -231,7 +339,11 @@ slovo_admin_user_enabled: true
 # Service registry for systemd_service_manager
 # =============================================================================
 # Lower priority = starts first, stops last
-# Order: traefik (250) → postgres (500) → minio (600) → backend (2000) → frontend (2050) → adminer (2100) → swagger (2150)
+# Order: traefik (250) → postgres (500) → pgbouncer (550) → minio (600) → backend (2000) → frontend (2050) → adminer (2100) → swagger (2150)
+
+# VPS optimization: restart services in priority batches (non-blocking within each
+# priority level), so a restart storm doesn't overwhelm a single-core box.
+devture_systemd_service_manager_service_restart_mode: priority-batched
 
 # Only restart services whose configuration actually changed when running install-* tags.
 # When running setup-* tags (or no tags), restart everything unconditionally.
@@ -241,6 +353,7 @@ devture_systemd_service_manager_services_list_auto: |
   {{
     ([{'name': 'slovo-traefik.service', 'priority': 250, 'restart_necessary': traefik_restart_necessary | bool, 'groups': ['slovo', 'traefik']}] if traefik_enabled else [])
     + ([{'name': 'slovo-postgres.service', 'priority': 500, 'restart_necessary': postgres_restart_necessary | bool, 'groups': ['slovo', 'postgres']}] if postgres_enabled else [])
+    + ([{'name': 'slovo-pgbouncer.service', 'priority': 550, 'restart_necessary': slovo_pgbouncer_restart_necessary | bool, 'groups': ['slovo', 'pgbouncer']}] if slovo_pgbouncer_enabled else [])
     + ([{'name': 'slovo-minio.service', 'priority': 600, 'restart_necessary': slovo_minio_restart_necessary | bool, 'groups': ['slovo', 'minio']}] if slovo_minio_enabled else [])
     + ([{'name': 'slovo-backend.service', 'priority': 2000, 'restart_necessary': slovo_backend_restart_necessary | bool, 'groups': ['slovo', 'backend']}] if slovo_backend_enabled else [])
     + ([{'name': 'slovo-frontend.service', 'priority': 2050, 'restart_necessary': slovo_frontend_restart_necessary | bool, 'groups': ['slovo', 'frontend']}] if slovo_frontend_enabled else [])

@@ -1,0 +1,95 @@
+---
+# Idempotent swap setup: creates the swap file, activates it, persists it in
+# /etc/fstab and tunes vm.swappiness. When disabled, it deactivates and removes it.
+
+- tags:
+    - setup-all
+    - setup-slovo-swap
+    - install-all
+    - install-slovo-swap
+  block:
+    - when: slovo_swap_enabled | bool
+      block:
+        - name: Check whether the swap file exists
+          ansible.builtin.stat:
+            path: "{{ slovo_swap_file }}"
+          register: slovo_swap_file_stat
+
+        - name: Create the swap file (fallocate, or dd as a fallback for filesystems without fallocate support)
+          ansible.builtin.shell:
+            cmd: "fallocate -l {{ slovo_swap_size_mb }}M {{ slovo_swap_file }} || dd if=/dev/zero of={{ slovo_swap_file }} bs=1M count={{ slovo_swap_size_mb }} status=none"
+          when: not slovo_swap_file_stat.stat.exists | bool
+
+        - name: Ensure the swap file permissions are restricted to root
+          ansible.builtin.file:
+            path: "{{ slovo_swap_file }}"
+            mode: '0600'
+            owner: root
+            group: root
+
+        - name: Check whether the swap file is already formatted as swap
+          ansible.builtin.command:
+            cmd: "file {{ slovo_swap_file }}"
+          register: slovo_swap_file_type
+          changed_when: false
+          check_mode: no
+
+        - name: Format the swap file
+          ansible.builtin.command:
+            cmd: "mkswap {{ slovo_swap_file }}"
+          when: "'Linux swap file' not in slovo_swap_file_type.stdout"
+
+        - name: Check whether the swap file is already active
+          ansible.builtin.shell:
+            cmd: "swapon --show --noheadings | grep -q '{{ slovo_swap_file }}' && echo active || echo inactive"
+          register: slovo_swap_active_state
+          changed_when: false
+          check_mode: no
+
+        - name: Activate the swap file
+          ansible.builtin.command:
+            cmd: "swapon {{ slovo_swap_file }}"
+          when: slovo_swap_active_state.stdout == 'inactive'
+
+        - name: Ensure the swap file is enabled on boot
+          ansible.builtin.lineinfile:
+            path: /etc/fstab
+            regexp: '^\s*{{ slovo_swap_file | regex_escape }}\s+'
+            line: "{{ slovo_swap_file }} none swap sw,nofail 0 0"
+            state: present
+
+        - name: Tune the kernel's swap usage tendency
+          ansible.builtin.sysctl:
+            name: vm.swappiness
+            value: "{{ slovo_swap_swappiness }}"
+            state: present
+            reload: true
+
+- tags:
+    - setup-all
+    - setup-slovo-swap
+  block:
+    - when: not slovo_swap_enabled | bool
+      block:
+        - name: Check whether the swap file is active
+          ansible.builtin.shell:
+            cmd: "swapon --show --noheadings | grep -q '{{ slovo_swap_file }}' && echo active || echo inactive"
+          register: slovo_swap_active_state
+          changed_when: false
+          check_mode: no
+
+        - name: Deactivate the swap file
+          ansible.builtin.command:
+            cmd: "swapoff {{ slovo_swap_file }}"
+          when: slovo_swap_active_state.stdout == 'active'
+
+        - name: Remove the swap file entry from /etc/fstab
+          ansible.builtin.lineinfile:
+            path: /etc/fstab
+            regexp: '^\s*{{ slovo_swap_file | regex_escape }}\s+'
+            state: absent
+
+        - name: Remove the swap file
+          ansible.builtin.file:
+            path: "{{ slovo_swap_file }}"
+            state: absent

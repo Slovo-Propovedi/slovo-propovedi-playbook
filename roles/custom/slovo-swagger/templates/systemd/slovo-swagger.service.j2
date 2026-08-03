@@ -19,8 +19,8 @@ ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
     --user={{ slovo_user_uid }}:{{ slovo_user_gid }} \
     --cap-drop=ALL \
     --read-only \
-    --tmpfs /tmp \
-    --tmpfs /var/cache/nginx \
+    --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+    --tmpfs /var/cache/nginx:rw,noexec,nosuid,size=16m \
     --network={{ slovo_swagger_container_network }} \
     --label-file={{ slovo_swagger_base_path }}/labels \
     {% for arg in slovo_swagger_container_extra_arguments %}
