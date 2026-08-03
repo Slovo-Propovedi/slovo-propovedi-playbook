@@ -1,0 +1,36 @@
+---
+
+- name: Check existence of slovo-swagger service
+  ansible.builtin.stat:
+    path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-swagger.service"
+  register: slovo_swagger_service_stat
+
+- when: slovo_swagger_service_stat.stat.exists | bool
+  block:
+    - name: Ensure slovo-swagger is stopped
+      ansible.builtin.service:
+        name: slovo-swagger
+        state: stopped
+        enabled: false
+        daemon_reload: true
+
+    - name: Ensure slovo-swagger.service doesn't exist
+      ansible.builtin.file:
+        path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-swagger.service"
+        state: absent
+
+- name: Ensure slovo-swagger container doesn't exist
+  ansible.builtin.command:
+    cmd: "{{ devture_systemd_docker_base_host_command_docker }} rm -f slovo-swagger"
+  register: slovo_swagger_container_removal_result
+  changed_when: slovo_swagger_container_removal_result.rc == 0
+  failed_when: >-
+    slovo_swagger_container_removal_result.rc != 0
+    and 'No such container' not in slovo_swagger_container_removal_result.stderr
+    and 'no such container' not in slovo_swagger_container_removal_result.stderr
+
+- name: Ensure slovo-swagger paths don't exist
+  ansible.builtin.file:
+    path: "{{ slovo_swagger_base_path }}"
+    state: absent
+  when: "slovo_swagger_uninstall_remove_data | default(false) | bool"

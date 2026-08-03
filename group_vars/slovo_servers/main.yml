@@ -27,6 +27,7 @@ slovo_playbook_traefik_labels_enabled: "{{ traefik_enabled | bool }}"
 # NOT the service's own primary network. Traefik can only reach a container through a network it shares with it.
 slovo_backend_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
 slovo_frontend_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
+slovo_swagger_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
 slovo_minio_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
 slovo_adminer_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
 
@@ -34,6 +35,7 @@ slovo_adminer_container_labels_traefik_docker_network: "{{ slovo_playbook_revers
 # Wire them to the hub switch so that when Traefik is disabled, no service emits Traefik labels.
 slovo_backend_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
 slovo_frontend_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
+slovo_swagger_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
 slovo_minio_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
 slovo_adminer_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
 
@@ -136,6 +138,43 @@ slovo_frontend_systemd_required_services_list_auto: |
   }}
 
 # =============================================================================
+# Swagger (standalone Swagger UI + OpenAPI spec)
+# =============================================================================
+
+slovo_swagger_enabled: true
+slovo_swagger_identifier: slovo-swagger
+slovo_swagger_base_path: "{{ slovo_base_data_path }}/swagger"
+
+# Primary network (own — the swagger container only shares the traefik network)
+slovo_swagger_container_network: slovo-swagger
+
+# Cross-network joins: swagger must reach traefik (for routing)
+slovo_swagger_container_additional_networks_auto: |
+  {{
+    ([slovo_playbook_reverse_proxy_container_network] if slovo_playbook_traefik_labels_enabled and slovo_playbook_reverse_proxy_container_network else [])
+  }}
+
+# Swagger depends on docker (default) + traefik (routing)
+slovo_swagger_systemd_required_services_list_auto: |
+  {{
+    ([traefik_identifier + '.service'] if traefik_enabled else [])
+  }}
+
+# Backend CORS: allow the standalone Swagger UI origin to fetch the OpenAPI spec.
+# `slovo_backend_swagger_enabled` stays a user toggle (default: false) — enable it
+# in vars.yml if the backend should also serve its own spec endpoint.
+#
+# NOTE: the swagger role runs AFTER the backend role, so its role defaults aren't
+# loaded yet when the backend env file is rendered. The `default('')` guards keep
+# the value clean until the swagger role's validate_config enforces a hostname.
+slovo_backend_swagger_ui_origin: >-
+  {{
+    ('https://' + (slovo_swagger_hostname | default('')))
+    if (slovo_swagger_enabled | default(false) | bool and (slovo_swagger_hostname | default('')) | length > 0)
+    else ''
+  }}
+
+# =============================================================================
 # MinIO
 # =============================================================================
 
@@ -192,7 +231,7 @@ slovo_admin_user_enabled: true
 # Service registry for systemd_service_manager
 # =============================================================================
 # Lower priority = starts first, stops last
-# Order: traefik (250) → postgres (500) → minio (600) → backend (2000) → frontend (2050) → adminer (2100)
+# Order: traefik (250) → postgres (500) → minio (600) → backend (2000) → frontend (2050) → adminer (2100) → swagger (2150)
 
 # Only restart services whose configuration actually changed when running install-* tags.
 # When running setup-* tags (or no tags), restart everything unconditionally.
@@ -206,6 +245,7 @@ devture_systemd_service_manager_services_list_auto: |
     + ([{'name': 'slovo-backend.service', 'priority': 2000, 'restart_necessary': slovo_backend_restart_necessary | bool, 'groups': ['slovo', 'backend']}] if slovo_backend_enabled else [])
     + ([{'name': 'slovo-frontend.service', 'priority': 2050, 'restart_necessary': slovo_frontend_restart_necessary | bool, 'groups': ['slovo', 'frontend']}] if slovo_frontend_enabled else [])
     + ([{'name': 'slovo-adminer.service', 'priority': 2100, 'restart_necessary': slovo_adminer_restart_necessary | bool, 'groups': ['slovo', 'adminer']}] if slovo_adminer_enabled else [])
+    + ([{'name': 'slovo-swagger.service', 'priority': 2150, 'restart_necessary': slovo_swagger_restart_necessary | bool, 'groups': ['slovo', 'swagger']}] if slovo_swagger_enabled else [])
    }}
 
 # =============================================================================

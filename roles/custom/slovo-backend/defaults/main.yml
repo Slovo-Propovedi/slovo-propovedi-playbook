@@ -93,6 +93,12 @@ slovo_backend_minio_access_key: ''
 slovo_backend_minio_secret_key: ''
 slovo_backend_minio_public_uri: ''
 
+# Swagger integration with the standalone slovo-swagger service.
+# When the standalone Swagger UI is enabled (slovo_swagger_enabled), the backend
+# serves its OpenAPI spec and allows the swagger UI origin via CORS.
+slovo_backend_swagger_enabled: false
+slovo_backend_swagger_ui_origin: ''
+
 # Controls whether uninstall also removes all data (defaults to false).
 slovo_backend_uninstall_remove_data: false
 

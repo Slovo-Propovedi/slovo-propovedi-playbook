@@ -53,6 +53,13 @@
         - install-slovo-frontend
         - install-all
 
+    - role: custom/slovo-swagger
+      tags:
+        - setup-slovo-swagger
+        - setup-all
+        - install-slovo-swagger
+        - install-all
+
     - role: custom/slovo-adminer
       tags:
         - setup-slovo-adminer

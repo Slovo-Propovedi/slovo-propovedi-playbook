@@ -8,6 +8,7 @@ This playbook follows the [matrix-docker-ansible-deploy](https://github.com/span
 
 - **Backend (NestJS 10)** — the slovo-propovedi-admin panel API
 - **Frontend (Svelte 5)** — the admin panel web UI, served by nginx
+- **Swagger UI (standalone)** — self-hosted Swagger documentation + OpenAPI spec
 - **PostgreSQL 18.4** — primary database
 - **MinIO** — S3-compatible object storage
 - **Adminer** — web-based database administration
@@ -20,8 +21,8 @@ This playbook follows the [matrix-docker-ansible-deploy](https://github.com/span
 - **just** — the command runner used by the `justfile` (see [just](https://github.com/casey/just)). If you don't have it, you can run the raw `ansible-playbook` commands instead (see the note in the quick start below)
 - **Docker** on the target host
 - **Python 3 with the `bcrypt` module** on the target host (required for admin user seeding)
-- **git + docker buildx** on the target host (required for building the backend image from source)
-- **SSH access to git.lightnode.ru** from the target host (required for cloning the backend repository)
+- **git + docker buildx** on the target host (required for building images from source — backend and Swagger UI)
+- **SSH access to git.lightnode.ru** from the target host (required for cloning the backend and Swagger UI repositories)
 
 ## Quick start
 

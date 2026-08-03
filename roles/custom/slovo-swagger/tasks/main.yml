@@ -1,0 +1,20 @@
+---
+
+- tags:
+    - setup-all
+    - setup-slovo-swagger
+    - install-all
+    - install-slovo-swagger
+  block:
+    - when: slovo_swagger_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
+
+    - when: slovo_swagger_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/install.yml"
+
+- tags:
+    - setup-all
+    - setup-slovo-swagger
+  block:
+    - when: not slovo_swagger_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/uninstall.yml"

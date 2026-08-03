@@ -1,0 +1,18 @@
+{% if slovo_swagger_container_labels_traefik_enabled %}
+traefik.enable=true
+
+{% if slovo_swagger_container_labels_traefik_docker_network %}
+traefik.docker.network={{ slovo_swagger_container_labels_traefik_docker_network }}
+{% endif %}
+
+traefik.http.services.slovo-swagger.loadbalancer.server.port={{ slovo_swagger_container_port }}
+
+traefik.http.routers.slovo-swagger.rule={{ slovo_swagger_container_labels_traefik_rule }}
+traefik.http.routers.slovo-swagger.service=slovo-swagger
+traefik.http.routers.slovo-swagger.entrypoints={{ slovo_swagger_container_labels_traefik_entrypoints }}
+traefik.http.routers.slovo-swagger.tls={{ slovo_swagger_container_labels_traefik_tls | to_json }}
+{% if slovo_swagger_container_labels_traefik_tls %}
+traefik.http.routers.slovo-swagger.tls.certResolver={{ slovo_swagger_container_labels_traefik_tls_certResolver }}
+{% endif %}
+
+{% endif %}

@@ -10,6 +10,7 @@ Here's what gets installed on your server:
 | --- | --- | --- | --- |
 | Backend (NestJS) | `slovo-backend.service` | `slovo-backend` | Admin panel API + Swagger (port 3000) |
 | Frontend (Svelte 5) | `slovo-frontend.service` | `slovo-frontend` | Admin panel web UI (nginx-served SPA, port 8080) |
+| Swagger UI (standalone) | `slovo-swagger.service` | `slovo-swagger` | Standalone Swagger UI + OpenAPI spec (nginx-served, port 8080) |
 | PostgreSQL 18.4 | `slovo-postgres.service` | `slovo-postgres` | Primary database |
 | MinIO | `slovo-minio.service` | `slovo-minio` | S3-compatible object storage (API port 9000, console port 9001) |
 | Adminer (optional) | `slovo-adminer.service` | `slovo-adminer` | Web-based database administration (port 8080) |
@@ -53,6 +54,7 @@ Every service is served by Traefik on ports 80/443, so all of the records below 
 | `admin.example.com` | your server's IP | Backend (NestJS API + Swagger) |
 | `api.example.com` | your server's IP | API requests (sermons, playlists CRUD) |
 | `admin-app.example.com` | your server's IP | Frontend (admin panel web UI) |
+| `swagger.example.com` | your server's IP | Standalone Swagger UI |
 | `minio-api.example.com` | your server's IP | MinIO S3 API |
 | `minio-console.example.com` | your server's IP | MinIO console |
 | `adminer.example.com` | your server's IP | Adminer (only needed if you enable it) |
@@ -117,6 +119,11 @@ slovo_backend_jwt_refresh_secret: CHANGE_ME_strong_random_secret
 slovo_frontend_hostname: admin-app.example.com
 
 # ──────────────────────────────────────────────
+# Swagger UI hostname
+# ──────────────────────────────────────────────
+slovo_swagger_hostname: swagger.example.com
+
+# ──────────────────────────────────────────────
 # PostgreSQL credentials
 # ──────────────────────────────────────────────
 slovo_backend_postgres_user: slovo
@@ -161,6 +168,8 @@ slovo_admin_user_password: CHANGE_ME_admin_password
 
 - **Frontend hostname** — `slovo_frontend_hostname` is the public hostname of the admin panel web UI (e.g. `admin-app.example.com`, a Svelte 5 SPA served by nginx on port 8080). The SPA calls the API through the relative `/api` path; the frontend's nginx proxies those requests to the backend container on the shared Docker network. See [Deploying the frontend](deploying-frontend.md) for details.
 
+- **Swagger UI hostname** — `slovo_swagger_hostname` is the public hostname of the standalone Swagger UI (e.g. `swagger.example.com`). It is a static site self-built from the `slovo-propovedi-swagger` repository and served by nginx on port 8080 in a read-only container. The backend's `SWAGGER_UI_ORIGIN` is wired automatically to `https://{{ slovo_swagger_hostname }}` (when swagger is enabled) so the backend's CORS allows the Swagger UI to fetch the OpenAPI spec. If the backend should also serve its own spec endpoint, set `slovo_backend_swagger_enabled: true` in your vars.
+
 - **MinIO** — `slovo_minio_root_user`/`slovo_minio_root_password` are the MinIO server's root credentials. The backend's MinIO credentials (`slovo_backend_minio_access_key`/`slovo_backend_minio_secret_key`) and public S3 URI (`slovo_backend_minio_public_uri`) are **wired automatically** from the root credentials and `slovo_minio_hostname` in `group_vars/slovo_servers/main.yml`, so they always match and there is no credential drift. The endpoint (`slovo-minio`) and API port (`9000`) are also wired automatically.
 
 - **Adminer (optional)** — a lightweight database web UI. Set `slovo_adminer_enabled: false` (or remove the `slovo_adminer_*` variables) to skip it entirely. Adminer asks for credentials manually in the browser — connect to server `slovo-postgres` with the PostgreSQL credentials above.
@@ -195,7 +204,7 @@ just roles
 just setup-all
 ```
 
-This installs all services (Docker, PostgreSQL, MinIO, backend, frontend, Adminer, Traefik) and starts them.
+This installs all services (Docker, PostgreSQL, MinIO, backend, frontend, Swagger UI, Adminer, Traefik) and starts them.
 
 > [!NOTE]
 > Without `just`, run the equivalent `ansible-playbook` command:
@@ -233,7 +242,7 @@ After installation, everything is available over HTTPS:
 | --- | --- |
 | Admin panel UI | `https://admin-app.example.com` |
 | Backend API | `https://admin.example.com` |
-| Swagger documentation | `https://admin.example.com/swagger-api` |
+| Swagger documentation | `https://swagger.example.com` |
 | MinIO console | `https://minio-console.example.com` |
 | Adminer | `https://adminer.example.com` (if enabled) |
 
