@@ -42,7 +42,7 @@ slovo_frontend_hostname: admin-app.example.com
 # =============================================================================
 # Swagger (standalone Swagger UI)
 # =============================================================================
-slovo_swagger_hostname: swagger.example.com
+slovo_swagger_hostname: docs.example.com
 
 # =============================================================================
 # MinIO
