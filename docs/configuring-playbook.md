@@ -9,6 +9,7 @@ Here's what gets installed on your server:
 | Service | Systemd unit | Container | Purpose |
 | --- | --- | --- | --- |
 | Backend (NestJS) | `slovo-backend.service` | `slovo-backend` | Admin panel API + Swagger (port 3000) |
+| Frontend (Svelte 5) | `slovo-frontend.service` | `slovo-frontend` | Admin panel web UI (nginx-served SPA, port 8080) |
 | PostgreSQL 18.4 | `slovo-postgres.service` | `slovo-postgres` | Primary database |
 | MinIO | `slovo-minio.service` | `slovo-minio` | S3-compatible object storage (API port 9000, console port 9001) |
 | Adminer (optional) | `slovo-adminer.service` | `slovo-adminer` | Web-based database administration (port 8080) |
@@ -17,6 +18,7 @@ Here's what gets installed on your server:
 Related documentation:
 
 - [Deploying the backend](deploying-backend.md) — details about the NestJS application and its self-built container.
+- [Deploying the frontend](deploying-frontend.md) — details about the Svelte 5 SPA and its self-built container.
 - [Configuring Traefik](configuring-traefik.md) — details about the reverse proxy.
 
 ## Prerequisites
@@ -50,6 +52,7 @@ Every service is served by Traefik on ports 80/443, so all of the records below 
 | --- | --- | --- |
 | `admin.example.com` | your server's IP | Backend (NestJS API + Swagger) |
 | `api.example.com` | your server's IP | API requests (sermons, playlists CRUD) |
+| `admin-app.example.com` | your server's IP | Frontend (admin panel web UI) |
 | `minio-api.example.com` | your server's IP | MinIO S3 API |
 | `minio-console.example.com` | your server's IP | MinIO console |
 | `adminer.example.com` | your server's IP | Adminer (only needed if you enable it) |
@@ -109,6 +112,11 @@ slovo_backend_jwt_secret: CHANGE_ME_strong_random_secret
 slovo_backend_jwt_refresh_secret: CHANGE_ME_strong_random_secret
 
 # ──────────────────────────────────────────────
+# Frontend hostname
+# ──────────────────────────────────────────────
+slovo_frontend_hostname: admin-app.example.com
+
+# ──────────────────────────────────────────────
 # PostgreSQL credentials
 # ──────────────────────────────────────────────
 slovo_backend_postgres_user: slovo
@@ -151,6 +159,8 @@ slovo_admin_user_password: CHANGE_ME_admin_password
 
 - **Backend hostname + JWT secrets** — `slovo_backend_hostname` is the public hostname of the API. The two JWT secrets must be strong random strings; they sign access and refresh tokens respectively. Never reuse them across environments. Optionally, `slovo_backend_api_hostname` exposes a **second subdomain** (e.g. `api.example.com`) for API requests; it routes to the same backend container on port 3000 via a separate Traefik router named `slovo-backend-api`. When left empty, no API router is created and everything is served through `slovo_backend_hostname`.
 
+- **Frontend hostname** — `slovo_frontend_hostname` is the public hostname of the admin panel web UI (e.g. `admin-app.example.com`, a Svelte 5 SPA served by nginx on port 8080). The SPA calls the API through the relative `/api` path; the frontend's nginx proxies those requests to the backend container on the shared Docker network. See [Deploying the frontend](deploying-frontend.md) for details.
+
 - **MinIO** — `slovo_minio_root_user`/`slovo_minio_root_password` are the MinIO server's root credentials. The backend's MinIO credentials (`slovo_backend_minio_access_key`/`slovo_backend_minio_secret_key`) and public S3 URI (`slovo_backend_minio_public_uri`) are **wired automatically** from the root credentials and `slovo_minio_hostname` in `group_vars/slovo_servers/main.yml`, so they always match and there is no credential drift. The endpoint (`slovo-minio`) and API port (`9000`) are also wired automatically.
 
 - **Adminer (optional)** — a lightweight database web UI. Set `slovo_adminer_enabled: false` (or remove the `slovo_adminer_*` variables) to skip it entirely. Adminer asks for credentials manually in the browser — connect to server `slovo-postgres` with the PostgreSQL credentials above.
@@ -185,7 +195,7 @@ just roles
 just setup-all
 ```
 
-This installs all services (Docker, PostgreSQL, MinIO, backend, Adminer, Traefik) and starts them.
+This installs all services (Docker, PostgreSQL, MinIO, backend, frontend, Adminer, Traefik) and starts them.
 
 > [!NOTE]
 > Without `just`, run the equivalent `ansible-playbook` command:
@@ -221,6 +231,7 @@ After installation, everything is available over HTTPS:
 
 | What | URL |
 | --- | --- |
+| Admin panel UI | `https://admin-app.example.com` |
 | Backend API | `https://admin.example.com` |
 | Swagger documentation | `https://admin.example.com/swagger-api` |
 | MinIO console | `https://minio-console.example.com` |

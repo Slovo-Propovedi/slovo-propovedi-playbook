@@ -112,7 +112,7 @@ slovo_backend_systemd_required_services_list_auto: |
   }}
 
 # =============================================================================
-# Frontend (React SPA)
+# Frontend (Svelte 5 SPA)
 # =============================================================================
 
 slovo_frontend_enabled: true
@@ -122,15 +122,18 @@ slovo_frontend_base_path: "{{ slovo_base_data_path }}/frontend"
 # Primary network
 slovo_frontend_container_network: slovo-frontend
 
-# Cross-network joins: frontend only needs traefik (for routing)
+# Cross-network joins: frontend needs traefik (for routing) + backend (for /api proxy)
 slovo_frontend_container_additional_networks_auto: |
   {{
     ([slovo_playbook_reverse_proxy_container_network] if slovo_playbook_traefik_labels_enabled and slovo_playbook_reverse_proxy_container_network else [])
+    + ([slovo_backend_container_network] if slovo_backend_enabled else [])
   }}
 
-# Frontend depends on traefik being up (for routing)
-# No postgres/minio dependency — frontend is static
-slovo_frontend_systemd_required_services_list_auto: []
+# Frontend depends on traefik (routing) + backend (API proxy target)
+slovo_frontend_systemd_required_services_list_auto: |
+  {{
+    ([slovo_backend_identifier + '.service'] if slovo_backend_enabled else [])
+  }}
 
 # =============================================================================
 # MinIO

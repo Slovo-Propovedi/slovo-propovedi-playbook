@@ -23,6 +23,15 @@
     group: "{{ slovo_group_name }}"
   register: slovo_frontend_labels_file_changed
 
+- name: Ensure slovo-frontend nginx config installed
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/nginx.conf.j2"
+    dest: "{{ slovo_frontend_base_path }}/nginx.conf"
+    mode: '0640'
+    owner: "{{ slovo_user_name }}"
+    group: "{{ slovo_group_name }}"
+  register: slovo_frontend_nginx_config_changed
+
 - when: slovo_frontend_container_image_self_build | bool
   block:
     # A checkout owned by a different user (a uid change, an earlier clone by another user, etc.) would make the git task below fail on ownership or permissions.
@@ -98,6 +107,7 @@
     slovo_frontend_restart_necessary: >-
       {{
         slovo_frontend_labels_file_changed.changed | default(false)
+        or slovo_frontend_nginx_config_changed.changed | default(false)
         or slovo_frontend_git_pull_changed.changed | default(false)
         or slovo_frontend_docker_image_build_changed.changed | default(false)
         or slovo_frontend_systemd_unit_changed.changed | default(false)

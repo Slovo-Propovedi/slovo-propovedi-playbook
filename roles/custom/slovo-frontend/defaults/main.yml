@@ -1,6 +1,6 @@
 ---
 
-# slovo-frontend is the React SPA for slovo-propovedi.
+# slovo-frontend is the Svelte 5 SPA for slovo-propovedi.
 # Project source code URL: https://github.com/egoreast/slovo-propovedi-admin
 # The container image is built locally from the repository (see `frontend/web-app/Dockerfile` in the repo).
 
@@ -29,6 +29,11 @@ slovo_frontend_container_image: "{{ slovo_frontend_identifier }}:latest"
 
 # The port nginx listens on inside the container (non-root, no special capabilities needed).
 slovo_frontend_container_port: 8080
+
+# The backend container address used by the frontend's nginx reverse proxy.
+# The frontend nginx proxies /api/ requests to this upstream.
+# Default: the backend container name and port on the shared Docker network.
+slovo_frontend_backend_upstream: "{{ slovo_backend_identifier }}:3000"
 
 # The base container network. It will be auto-created by this role if it doesn't exist already.
 slovo_frontend_container_network: ''

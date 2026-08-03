@@ -7,6 +7,7 @@ This playbook follows the [matrix-docker-ansible-deploy](https://github.com/span
 ## Features
 
 - **Backend (NestJS 10)** — the slovo-propovedi-admin panel API
+- **Frontend (Svelte 5)** — the admin panel web UI, served by nginx
 - **PostgreSQL 18.4** — primary database
 - **MinIO** — S3-compatible object storage
 - **Adminer** — web-based database administration
@@ -80,6 +81,7 @@ This playbook follows the [matrix-docker-ansible-deploy](https://github.com/span
 
 - [Configuring the playbook](docs/configuring-playbook.md)
 - [Deploying the backend](docs/deploying-backend.md)
+- [Deploying the frontend](docs/deploying-frontend.md)
 - [Configuring Traefik](docs/configuring-traefik.md)
 
 ## License
