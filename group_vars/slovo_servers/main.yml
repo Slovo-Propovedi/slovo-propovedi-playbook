@@ -164,9 +164,9 @@ slovo_swagger_systemd_required_services_list_auto: |
 # `slovo_backend_swagger_enabled` stays a user toggle (default: false) — enable it
 # in vars.yml if the backend should also serve its own spec endpoint.
 #
-# NOTE: the swagger role runs AFTER the backend role, so its role defaults aren't
-# loaded yet when the backend env file is rendered. The `default('')` guards keep
-# the value clean until the swagger role's validate_config enforces a hostname.
+# NOTE: the swagger role is statically listed in setup.yml, so its role defaults
+# are loaded at parse time — before any task runs. The `default('')` guards are
+# therefore redundant, but harmless safety nets.
 slovo_backend_swagger_ui_origin: >-
   {{
     ('https://' + (slovo_swagger_hostname | default('')))

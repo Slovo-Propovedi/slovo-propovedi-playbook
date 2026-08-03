@@ -94,8 +94,11 @@ slovo_backend_minio_secret_key: ''
 slovo_backend_minio_public_uri: ''
 
 # Swagger integration with the standalone slovo-swagger service.
-# When the standalone Swagger UI is enabled (slovo_swagger_enabled), the backend
-# serves its OpenAPI spec and allows the swagger UI origin via CORS.
+# These are INDEPENDENT toggles:
+# - slovo_backend_swagger_enabled controls whether the backend serves its own
+#   Swagger endpoint (default: false).
+# - slovo_backend_swagger_ui_origin is wired in group_vars to the standalone
+#   swagger service hostname (for CORS).
 slovo_backend_swagger_enabled: false
 slovo_backend_swagger_ui_origin: ''
 
