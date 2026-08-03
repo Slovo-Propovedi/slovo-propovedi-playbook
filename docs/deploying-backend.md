@@ -59,6 +59,16 @@ The image is rebuilt whenever the git checkout changes or the `setup-all` tags a
 ansible-playbook -i inventory/hosts setup.yml --tags=setup-all,start
 ```
 
+### Build resource limits
+
+The backend Docker image build is limited to **1GB RAM** and **1 CPU** by default to prevent server OOM.
+Adjust via:
+```yaml
+slovo_backend_container_image_build_memory: "2g"
+slovo_backend_container_image_build_cpus: "2"
+```
+If builds fail with OOM, increase the memory limit. The Node.js heap is also capped via `NODE_OPTIONS=--max-old-space-size=768` in the Dockerfile.
+
 ## Target host prerequisites
 
 Because the image is self-built, the target host needs:

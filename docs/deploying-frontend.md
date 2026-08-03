@@ -94,6 +94,16 @@ ansible-playbook -i inventory/hosts setup.yml --tags=setup-all,start
 > [!NOTE]
 > Unlike the backend, the frontend repository is cloned over **HTTPS** (no SSH key is needed for `git.lightnode.ru`).
 
+### Build resource limits
+
+The frontend Docker image build is limited to **512MB RAM** and **1 CPU** by default to prevent server OOM.
+Adjust via:
+```yaml
+slovo_frontend_container_image_build_memory: "1g"
+slovo_frontend_container_image_build_cpus: "2"
+```
+If builds fail with OOM, increase the memory limit. The Node.js heap is also capped via `NODE_OPTIONS=--max-old-space-size=384` in the Dockerfile.
+
 ## Container security
 
 The frontend container runs with:

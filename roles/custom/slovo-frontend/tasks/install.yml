@@ -81,6 +81,7 @@
       ansible.builtin.command:
         cmd: |-
           {{ devture_systemd_docker_base_host_command_docker }} buildx build
+          --memory={{ slovo_frontend_container_image_build_memory }} --cpus={{ slovo_frontend_container_image_build_cpus }}
           --tag={{ slovo_frontend_container_image }}
           --file={{ slovo_frontend_container_src_path }}/frontend/web-app/Dockerfile
           {{ slovo_frontend_container_src_path }}/frontend/web-app

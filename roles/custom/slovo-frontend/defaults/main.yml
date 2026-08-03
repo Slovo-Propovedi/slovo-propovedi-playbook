@@ -24,6 +24,10 @@ slovo_frontend_container_image_self_build_repo: "https://git.lightnode.ru/Slovo_
 slovo_frontend_container_image_self_build_repo_version: "master"
 slovo_frontend_container_src_path: "{{ slovo_frontend_base_path }}/container-src"
 
+# Resource limits for the self-build (`docker buildx build`), to prevent the build from exhausting the host's memory.
+slovo_frontend_container_image_build_memory: "512m"
+slovo_frontend_container_image_build_cpus: "1"
+
 # The locally-built container image name.
 slovo_frontend_container_image: "{{ slovo_frontend_identifier }}:latest"
 
