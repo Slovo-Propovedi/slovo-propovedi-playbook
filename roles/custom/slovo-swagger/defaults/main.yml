@@ -1,7 +1,7 @@
 ---
 
 # slovo-swagger is a standalone static Swagger UI + OpenAPI spec service for slovo-propovedi.
-# Project source code URL: https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-swagger
+# Project source code URL: https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-docs
 # The container image is built locally from the repository (see `Dockerfile` at the repo ROOT).
 # Unlike the frontend, the nginx.conf is baked into the image — no config volume is mounted.
 
@@ -21,7 +21,7 @@ slovo_swagger_base_path: "{{ slovo_base_data_path }}/swagger"
 
 # Self-build (the container image is built locally from the git repository).
 slovo_swagger_container_image_self_build: true
-slovo_swagger_container_image_self_build_repo: "https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-swagger.git"
+slovo_swagger_container_image_self_build_repo: "https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-docs.git"
 # The swagger repository uses `main` as its default branch (not `master` like the other repos).
 slovo_swagger_container_image_self_build_repo_version: "main"
 slovo_swagger_container_src_path: "{{ slovo_swagger_base_path }}/container-src"
