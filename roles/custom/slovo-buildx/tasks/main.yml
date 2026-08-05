@@ -1,0 +1,22 @@
+---
+
+- name: Check if constrained buildx builder exists
+  ansible.builtin.command:
+    cmd: "{{ devture_systemd_docker_base_host_command_docker }} buildx inspect {{ slovo_buildx_builder_name }}"
+  register: slovo_buildx_inspect_result
+  changed_when: false
+  failed_when: false
+  when: slovo_buildx_builder_enabled | bool
+
+- name: Ensure constrained buildx builder exists
+  ansible.builtin.command:
+    cmd: >-
+      {{ devture_systemd_docker_base_host_command_docker }} buildx create
+      --name {{ slovo_buildx_builder_name }}
+      --driver docker-container
+      --driver-opt memory={{ slovo_buildx_builder_memory }}
+      --driver-opt cpu-quota={{ slovo_buildx_builder_cpu_quota }}
+      --bootstrap
+  when:
+    - slovo_buildx_builder_enabled | bool
+    - slovo_buildx_inspect_result.rc != 0

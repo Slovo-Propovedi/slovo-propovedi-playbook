@@ -44,9 +44,11 @@ During installation (the `setup-slovo-backend` / `setup-all` tags), the playbook
    git clone ssh://git@git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-admin.git <src_path>
    ```
    on the `master` branch (`force: yes`, so a rerun always matches the remote).
-3. Builds the image with Docker Buildx:
+3. Builds the image with Docker Buildx, using the shared constrained builder (`--builder=slovo-constrained`, see [Build resource limits](#build-resource-limits)). `--load` exports the built image to the local Docker store:
    ```sh
    docker buildx build \
+     --builder=slovo-constrained \
+     --load \
      --tag=slovo-backend:latest \
      --file=<src_path>/backend/Dockerfile \
      <src_path>/backend
@@ -61,13 +63,26 @@ ansible-playbook -i inventory/hosts setup.yml --tags=setup-all,start
 
 ### Build resource limits
 
-The backend Docker image build is limited to **1GB RAM** and **1 CPU** by default to prevent server OOM.
-Adjust via:
+Backend builds run in a single shared, **resource-constrained buildx builder** (the `docker-container` driver), created by the `slovo-buildx` role. The builder's container has a kernel-enforced memory and CPU ceiling that bounds the *entire* build — the BuildKit daemon plus every parallel `RUN` step.
+
+| Setting | Variable | Default |
+| --- | --- | --- |
+| Builder memory ceiling | `slovo_buildx_builder_memory` | `1g` |
+| Builder CPU quota (µs/period) | `slovo_buildx_builder_cpu_quota` | `80000` (= 0.8 CPU / ~80%) |
+
+> [!NOTE]
+> The previous per-build `--memory`/`--cpus` flags were removed: `--cpus` was never a valid `docker buildx build` flag (it is `docker run`-only), and `--memory` only limited each build step in isolation, not the build as a whole.
+
+If a build runs out of memory (the *build* fails — the desired safety behavior; the server stays up), raise the ceiling in `vars.yml`:
 ```yaml
-slovo_backend_container_image_build_memory: "2g"
-slovo_backend_container_image_build_cpus: "2"
+slovo_buildx_builder_memory: "1500m"
 ```
-If builds fail with OOM, increase the memory limit. The Node.js heap is also capped via `NODE_OPTIONS=--max-old-space-size=768` in the Dockerfile.
+then recreate the builder and re-run (the buildx role must run together with the service — `setup-service` alone skips it):
+```sh
+docker buildx rm slovo-constrained
+just run --tags=setup-slovo-buildx,setup-slovo-backend,start
+```
+The Node.js heap is additionally capped via `NODE_OPTIONS=--max-old-space-size=768` in the Dockerfile; keep it below `slovo_buildx_builder_memory` so V8 gives first, with the builder as the backstop.
 
 ## Target host prerequisites
 
@@ -167,7 +182,8 @@ The original `docker-compose.yml` in the repository bind-mounts `./backend/:/app
 Additionally, the container is started with:
 
 - `--read-only` — the root filesystem is read-only.
-- `--tmpfs=/tmp:rw,noexec,nosuid,size=1024m` — a writable tmpfs at `/tmp` for temporary files (NestJS/Node may write temp files during uploads).
+- `--tmpfs=/tmp:rw,noexec,nosuid,size=64m` — a small writable tmpfs at `/tmp` for temporary files (NestJS/Node may write temp files during uploads).
+- `--memory=384m` — VPS cap; the Node heap is separately bounded via `NODE_OPTIONS=--max-old-space-size=768`.
 - `--cap-drop=ALL` — no capabilities.
 - `--user={{ slovo_user_uid }}:{{ slovo_user_gid }}` — runs as the `slovo` user's auto-assigned uid/gid (the owner of the env/labels files).
 

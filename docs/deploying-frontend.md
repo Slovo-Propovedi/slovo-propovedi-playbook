@@ -76,9 +76,11 @@ During installation (the `setup-slovo-frontend` / `setup-all` tags), the playboo
    git clone https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-admin.git <src_path>
    ```
    on the `master` branch (`force: yes`, so a rerun always matches the remote).
-3. Builds the image with Docker Buildx:
+3. Builds the image with Docker Buildx, using the shared constrained builder (`--builder=slovo-constrained`, see [Build resource limits](#build-resource-limits)). `--load` exports the built image to the local Docker store:
    ```sh
    docker buildx build \
+     --builder=slovo-constrained \
+     --load \
      --tag=slovo-frontend:latest \
      --file=<src_path>/frontend/web-app/Dockerfile \
      <src_path>/frontend/web-app
@@ -96,13 +98,27 @@ ansible-playbook -i inventory/hosts setup.yml --tags=setup-all,start
 
 ### Build resource limits
 
-The frontend Docker image build is limited to **512MB RAM** and **1 CPU** by default to prevent server OOM.
-Adjust via:
+Frontend builds run in the single shared, **resource-constrained buildx builder** (the `docker-container` driver), created by the `slovo-buildx` role. The builder's container has a kernel-enforced memory and CPU ceiling that bounds the *entire* build — the BuildKit daemon plus every parallel `RUN` step.
+
+| Setting | Variable | Default |
+| --- | --- | --- |
+| Builder memory ceiling | `slovo_buildx_builder_memory` | `1g` |
+| Builder CPU quota (µs/period) | `slovo_buildx_builder_cpu_quota` | `80000` (= 0.8 CPU / ~80%) |
+
+> [!NOTE]
+> The previous per-build `--memory`/`--cpus` flags were removed: `--cpus` was never a valid `docker buildx build` flag (it is `docker run`-only), and `--memory` only limited each build step in isolation, not the build as a whole.
+
+The frontend build is light (a Vite bundle), so the shared 1g ceiling is ample. The Node.js heap is additionally capped via `NODE_OPTIONS=--max-old-space-size=384` in the Dockerfile; keep it below `slovo_buildx_builder_memory` so V8 gives first, with the builder as the backstop.
+
+If a build ever runs out of memory (the *build* fails — the desired safety behavior; the server stays up), raise the ceiling in `vars.yml`:
 ```yaml
-slovo_frontend_container_image_build_memory: "1g"
-slovo_frontend_container_image_build_cpus: "2"
+slovo_buildx_builder_memory: "1500m"
 ```
-If builds fail with OOM, increase the memory limit. The Node.js heap is also capped via `NODE_OPTIONS=--max-old-space-size=384` in the Dockerfile.
+then recreate the builder and re-run (the buildx role must run together with the service — `setup-service` alone skips it):
+```sh
+docker buildx rm slovo-constrained
+just run --tags=setup-slovo-buildx,setup-slovo-frontend,start
+```
 
 ## Container security
 

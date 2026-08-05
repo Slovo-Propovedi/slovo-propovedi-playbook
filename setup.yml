@@ -39,6 +39,16 @@
         - install-docker
         - install-all
 
+    # Creates a single shared, resource-constrained buildx builder used by every
+    # self-built service (backend, frontend, swagger). Must run AFTER docker is
+    # installed and BEFORE the first self-build role.
+    - role: custom/slovo-buildx
+      tags:
+        - setup-slovo-buildx
+        - setup-all
+        - install-slovo-buildx
+        - install-all
+
     - role: galaxy/postgres
 
     # PgBouncer runs right after postgres (its postgres network must exist first),

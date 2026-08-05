@@ -1,0 +1,40 @@
+---
+
+# slovo-buildx creates a single shared, resource-constrained buildx builder used by
+# every self-built service (backend, frontend, swagger). The builder uses the
+# `docker-container` driver, so its cgroup limits are a kernel-enforced ceiling on
+# the WHOLE build (BuildKit daemon + every parallel RUN step).
+#
+# This replaces the previous per-build `--memory`/`--cpus` flags, which (a) never
+# existed as `--cpus` for `docker buildx build` (causing `unknown flag: --cpus`),
+# and (b) only constrained each build step in isolation, not the build as a whole.
+#
+# NOTE: to change the limits, you must recreate the builder first:
+#   docker buildx rm {{ slovo_buildx_builder_name }}
+# then re-run the playbook with BOTH the buildx role and the service that should
+# rebuild, e.g.:
+#   just run --tags=setup-slovo-buildx,setup-slovo-backend,start
+# (Running setup-slovo-buildx alone recreates the builder but does not rebuild,
+# because the build tasks are gated on a changed git checkout.)
+
+# Whether to create the constrained builder.
+# Disable only if you manage buildx builders yourself. When disabled, this role
+# will NOT create the builder, but the three self-build roles still emit
+# `--builder={{ slovo_buildx_builder_name }}`. You must therefore either
+# (a) create a builder with this name yourself, or
+# (b) override `slovo_buildx_builder_name` to point at an existing builder.
+slovo_buildx_builder_enabled: true
+
+# Builder name. Self-built services reference this via `--builder={{ slovo_buildx_builder_name }}`.
+slovo_buildx_builder_name: "slovo-constrained"
+
+# Memory ceiling for the builder container (and thus every build that runs in it).
+# 1g fits the backend's NODE_OPTIONS=--max-old-space-size=768 with headroom for
+# BuildKit overhead and non-V8 memory (native binaries, layer compression).
+slovo_buildx_builder_memory: "1g"
+
+# CPU CFS quota in microseconds per period (default period is 100000µs).
+# 100000 = 1.0 CPU (100%), 80000 = 0.8 CPU (~80%), 50000 = 0.5 CPU, 200000 = 2 CPUs.
+# Default 80000 caps the build at ~80% of one CPU, leaving headroom for the
+# running services (postgres, nginx, etc.) during deploys on a 1-CPU box.
+slovo_buildx_builder_cpu_quota: "80000"
