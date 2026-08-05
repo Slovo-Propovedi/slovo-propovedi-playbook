@@ -60,8 +60,17 @@ slovo_swagger_container_labels_traefik_tls: "{{ slovo_swagger_container_labels_t
 slovo_swagger_container_labels_traefik_tls_certResolver: default  # noqa var-naming
 
 # A list of extra arguments to pass to the container.
-# The container runs read-only; nginx needs writable tmpfs mounts at /tmp and
-# /var/cache/nginx, which are declared directly in the systemd service template.
+# The container runs read-only (--read-only); nginx needs writable tmpfs mounts at
+# /tmp and /var/cache/nginx, which are declared directly in the systemd service
+# template (see templates/systemd/slovo-swagger.service.j2).
+# Both tmpfs mounts are owned by the slovo system user (uid={{ slovo_user_uid }},
+# gid={{ slovo_user_gid }}) because the container runs as that non-root user and
+# nginx must create its temp/cache dirs (client_temp, proxy_temp, ...) under
+# /var/cache/nginx at startup. Without uid/gid/mode, Docker mounts tmpfs root-owned
+# and nginx aborts with "mkdir() ... Permission denied" → crash-loop.
+# Because the container is --read-only, nginx also needs a writable /run tmpfs to
+# write its PID file (/run/nginx.pid); without it nginx aborts with
+# 'open() "/run/nginx.pid" failed (30: Read-only file system)' → crash-loop.
 # VPS optimization: cap memory at 64MB.
 slovo_swagger_container_extra_arguments:
   - "--memory=64m"

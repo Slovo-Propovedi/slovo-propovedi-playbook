@@ -65,9 +65,14 @@ slovo_frontend_container_labels_traefik_tls_certResolver: default  # noqa var-na
 # VPS optimization: cap memory at 64MB and mount a small RAM-backed cache dir for the
 # nginx proxy_cache (sermon-list API responses). Upload bodies are buffered on disk
 # (/tmp, see `client_body_temp_path` in the nginx config), not in this tmpfs.
+# The tmpfs is owned by the slovo system user (uid={{ slovo_user_uid }},
+# gid={{ slovo_user_gid }}) because the container runs as that non-root user and
+# nginx must create the `api_cache` directory declared by `proxy_cache_path` at
+# startup. Without uid/gid/mode, Docker mounts tmpfs root-owned (0755) and nginx
+# aborts with "mkdir() ... Permission denied" → crash-loop.
 slovo_frontend_container_extra_arguments:
   - "--memory=64m"
-  - "--tmpfs=/var/cache/nginx:rw,noexec,nosuid,size=32m"
+  - "--tmpfs=/var/cache/nginx:rw,noexec,nosuid,size=32m,uid={{ slovo_user_uid }},gid={{ slovo_user_gid }},mode=0700"
 
 # List of systemd services that slovo-frontend.service depends on
 slovo_frontend_systemd_required_services_list: "{{ slovo_frontend_systemd_required_services_list_default + slovo_frontend_systemd_required_services_list_auto + slovo_frontend_systemd_required_services_list_custom }}"

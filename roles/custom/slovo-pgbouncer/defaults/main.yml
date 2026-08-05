@@ -73,6 +73,16 @@ slovo_pgbouncer_max_client_conn: 200
 # Maximum server connections per database (stays well under postgres max_connections=20).
 slovo_pgbouncer_max_db_connections: 10
 
+# Authentication method pgbouncer uses both for clients (backend → pgbouncer) and to
+# log in to the postgres server (pgbouncer → postgres). MUST be scram-sha-256:
+# postgres 18+ stores user passwords as SCRAM-SHA-256 secrets (password_encryption
+# defaults to scram-sha-256). The edoburu image default (md5) makes pgbouncer hold
+# only an MD5 hash, which it cannot use for the SCRAM handshake postgres demands —
+# the backend then fails with "server login failed: wrong password type". With
+# scram-sha-256 the entrypoint derives a SCRAM verifier from the plaintext
+# DB_PASSWORD, so pgbouncer authenticates to postgres (and clients to pgbouncer).
+slovo_pgbouncer_auth_type: scram-sha-256
+
 # slovo_pgbouncer_restart_necessary controls whether the service
 # will be restarted (when true) or merely started (when false) by the
 # systemd service manager role (when conditional restart is enabled).
