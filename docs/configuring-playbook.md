@@ -152,6 +152,7 @@ slovo_adminer_hostname: adminer.example.com
 # Admin user seeding (used by the ensure-slovo-users-created tag)
 # ──────────────────────────────────────────────
 slovo_admin_user_enabled: true
+slovo_admin_user_username: admin
 slovo_admin_user_email: admin@example.com
 slovo_admin_user_password: CHANGE_ME_admin_password
 ```
@@ -232,7 +233,7 @@ just ensure-admin-user
 > ansible-playbook -i inventory/hosts setup.yml --tags=ensure-slovo-users-created
 > ```
 
-This waits for PostgreSQL to be ready, generates a bcrypt hash of `slovo_admin_user_password` on the target host (hence the Python `bcrypt` prerequisite), and inserts the admin user into the database. If the email already exists, the task reports it and does nothing.
+This waits for PostgreSQL to be ready, generates a bcrypt hash of `slovo_admin_user_password` on the target host (hence the Python `bcrypt` prerequisite), and inserts the admin user into the database. If the username already exists, the task reports it and does nothing.
 
 ## Usage
 

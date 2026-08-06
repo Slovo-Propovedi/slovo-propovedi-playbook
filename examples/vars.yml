@@ -61,6 +61,7 @@ slovo_adminer_hostname: adminer.example.com
 # =============================================================================
 # Admin user seeding (run separately: --tags ensure-slovo-users-created)
 # =============================================================================
+slovo_admin_user_username: admin
 slovo_admin_user_email: admin@example.com
 slovo_admin_user_password: CHANGE_ME_initial_password_here
 
