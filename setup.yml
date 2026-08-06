@@ -40,7 +40,7 @@
         - install-all
 
     # Creates a single shared, resource-constrained buildx builder used by every
-    # self-built service (backend, frontend, swagger). Must run AFTER docker is
+    # self-built service (backend, frontend, docs). Must run AFTER docker is
     # installed and BEFORE the first self-build role.
     - role: custom/slovo-buildx
       tags:
@@ -81,11 +81,11 @@
         - install-slovo-frontend
         - install-all
 
-    - role: custom/slovo-swagger
+    - role: custom/slovo-docs
       tags:
-        - setup-slovo-swagger
+        - setup-slovo-docs
         - setup-all
-        - install-slovo-swagger
+        - install-slovo-docs
         - install-all
 
     - role: custom/slovo-adminer

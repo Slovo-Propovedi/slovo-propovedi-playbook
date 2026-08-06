@@ -1,0 +1,41 @@
+#jinja2: lstrip_blocks: True
+[Unit]
+Description=slovo-docs
+{% for service in slovo_docs_systemd_required_services_list %}
+Requires={{ service }}
+After={{ service }}
+{% endfor %}
+DefaultDependencies=no
+
+[Service]
+Type=simple
+Environment="HOME={{ devture_systemd_docker_base_systemd_unit_home_path }}"
+ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} slovo-docs 2>/dev/null || true'
+ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} rm slovo-docs 2>/dev/null || true'
+ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
+    --rm \
+    --name=slovo-docs \
+    --log-driver=none \
+    --user={{ slovo_user_uid }}:{{ slovo_user_gid }} \
+    --cap-drop=ALL \
+    --read-only \
+    --tmpfs /tmp:rw,noexec,nosuid,size=16m,uid={{ slovo_user_uid }},gid={{ slovo_user_gid }},mode=1777 \
+    --tmpfs /var/cache/nginx:rw,noexec,nosuid,size=16m,uid={{ slovo_user_uid }},gid={{ slovo_user_gid }},mode=0700 \
+    --tmpfs /run:rw,noexec,nosuid,size=8m,uid={{ slovo_user_uid }},gid={{ slovo_user_gid }},mode=0755 \
+    --network={{ slovo_docs_container_network }} \
+    --label-file={{ slovo_docs_base_path }}/labels \
+    {% for arg in slovo_docs_container_extra_arguments %}
+    {{ arg }} \
+    {% endfor %}
+    {{ slovo_docs_container_image }}
+{% for network in slovo_docs_container_additional_networks %}
+ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} network connect {{ network }} slovo-docs
+{% endfor %}
+ExecStart={{ devture_systemd_docker_base_host_command_docker }} start --attach slovo-docs
+ExecStop=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} slovo-docs 2>/dev/null || true'
+Restart=always
+RestartSec=30
+SyslogIdentifier=slovo-docs
+
+[Install]
+WantedBy=multi-user.target

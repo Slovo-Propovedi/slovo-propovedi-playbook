@@ -1,0 +1,6 @@
+---
+
+- name: Fail if Traefik enabled but no hostname specified
+  ansible.builtin.fail:
+    msg: "You need to set `slovo_docs_hostname` when using Traefik"
+  when: "slovo_docs_container_labels_traefik_enabled | bool and slovo_docs_hostname | length == 0"

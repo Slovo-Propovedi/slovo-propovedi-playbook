@@ -1,0 +1,36 @@
+---
+
+- name: Check existence of slovo-docs service
+  ansible.builtin.stat:
+    path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-docs.service"
+  register: slovo_docs_service_stat
+
+- when: slovo_docs_service_stat.stat.exists | bool
+  block:
+    - name: Ensure slovo-docs is stopped
+      ansible.builtin.service:
+        name: slovo-docs
+        state: stopped
+        enabled: false
+        daemon_reload: true
+
+    - name: Ensure slovo-docs.service doesn't exist
+      ansible.builtin.file:
+        path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-docs.service"
+        state: absent
+
+- name: Ensure slovo-docs container doesn't exist
+  ansible.builtin.command:
+    cmd: "{{ devture_systemd_docker_base_host_command_docker }} rm -f slovo-docs"
+  register: slovo_docs_container_removal_result
+  changed_when: slovo_docs_container_removal_result.rc == 0
+  failed_when: >-
+    slovo_docs_container_removal_result.rc != 0
+    and 'No such container' not in slovo_docs_container_removal_result.stderr
+    and 'no such container' not in slovo_docs_container_removal_result.stderr
+
+- name: Ensure slovo-docs paths don't exist
+  ansible.builtin.file:
+    path: "{{ slovo_docs_base_path }}"
+    state: absent
+  when: "slovo_docs_uninstall_remove_data | default(false) | bool"

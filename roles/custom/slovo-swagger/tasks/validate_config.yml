@@ -1,6 +1,0 @@
----
-
-- name: Fail if Traefik enabled but no hostname specified
-  ansible.builtin.fail:
-    msg: "You need to set `slovo_swagger_hostname` when using Traefik"
-  when: "slovo_swagger_container_labels_traefik_enabled | bool and slovo_swagger_hostname | length == 0"

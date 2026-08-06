@@ -34,7 +34,7 @@ slovo_playbook_reverse_proxy_type: playbook-managed-traefik
 Set a hostname for each service you enable:
 
 ```yaml
-# Backend (NestJS API + Swagger)
+# Backend (NestJS API + docs)
 slovo_backend_hostname: admin.example.com
 
 # MinIO — the S3 API and the console are separate hostnames

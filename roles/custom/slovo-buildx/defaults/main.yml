@@ -1,7 +1,7 @@
 ---
 
 # slovo-buildx creates a single shared, resource-constrained buildx builder used by
-# every self-built service (backend, frontend, swagger). The builder uses the
+# every self-built service (backend, frontend, docs). The builder uses the
 # `docker-container` driver, so its cgroup limits are a kernel-enforced ceiling on
 # the WHOLE build (BuildKit daemon + every parallel RUN step).
 #

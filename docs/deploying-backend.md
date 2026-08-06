@@ -6,7 +6,7 @@ This document describes how the slovo-propovedi-admin **backend** is built and d
 
 ## Overview
 
-The backend is a **NestJS 10** application (Node 18, TypeScript) that serves the admin panel API and the Swagger documentation. It is deployed as a Docker container, **self-built from source** rather than pulled from a registry.
+The backend is a **NestJS 10** application (Node 18, TypeScript) that serves the admin panel API and the API documentation (Swagger). It is deployed as a Docker container, **self-built from source** rather than pulled from a registry.
 
 - Repository: `ssh://git@git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-admin.git`
 - Branch: `master`
@@ -29,7 +29,7 @@ Both hostnames below are served by Traefik and route to the **same** backend con
 
 | Hostname | Playbook variable | Purpose |
 | --- | --- | --- |
-| `admin.example.com` | `slovo_backend_hostname` | Admin panel UI + Swagger (main router `slovo-backend`) |
+| `admin.example.com` | `slovo_backend_hostname` | Admin panel UI + docs (main router `slovo-backend`) |
 | `api.example.com` | `slovo_backend_api_hostname` | API requests — sermons, playlists CRUD, etc. (separate router `slovo-backend-api`) |
 
 The API subdomain is **optional**: when `slovo_backend_api_hostname` is empty (the default), no API router is created and all traffic goes through `slovo_backend_hostname`. Both routers must point at the same `slovo-backend` service (port 3000), and `slovo_backend_api_hostname` must differ from `slovo_backend_hostname` (the playbook fails otherwise, to avoid two Traefik routers with identical Host rules).
@@ -112,6 +112,8 @@ The backend reads its configuration from environment variables. The playbook ren
 | `MINIO_ACCESS_KEY` | `slovo_backend_minio_access_key` | MinIO access key (must match `slovo_minio_root_user`) |
 | `MINIO_SECRET_KEY` | `slovo_backend_minio_secret_key` | MinIO secret key (must match `slovo_minio_root_password`) |
 | `MINIO_PUBLIC_URI` | `slovo_backend_minio_public_uri` | Public base URL of the MinIO S3 API, used to build public file links |
+| `DOCS_ENABLED` | `slovo_backend_docs_enabled` | When `true`, the backend mounts Swagger UI at `/swagger-api` (loads the OpenAPI spec from the standalone docs site) |
+| `DOCS_UI_ORIGIN` | `slovo_backend_docs_ui_origin` | Origin of the standalone docs site, added to the backend's CORS allow-list |
 
 > [!IMPORTANT]
 > - `POSTGRES_PORT` is **hardcoded to `5432`** in the backend source code (`db/typeorm.module.ts`) and is not configurable via env vars.

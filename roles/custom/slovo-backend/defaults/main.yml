@@ -102,14 +102,14 @@ slovo_backend_minio_access_key: ''
 slovo_backend_minio_secret_key: ''
 slovo_backend_minio_public_uri: ''
 
-# Swagger integration with the standalone slovo-swagger service.
+# Docs integration with the standalone slovo-docs service.
 # These are INDEPENDENT toggles:
-# - slovo_backend_swagger_enabled controls whether the backend serves its own
-#   Swagger endpoint (default: false).
-# - slovo_backend_swagger_ui_origin is wired in group_vars to the standalone
-#   swagger service hostname (for CORS).
-slovo_backend_swagger_enabled: false
-slovo_backend_swagger_ui_origin: ''
+# - slovo_backend_docs_enabled controls whether the backend serves its own
+#   docs endpoint (default: false).
+# - slovo_backend_docs_ui_origin is wired in group_vars to the standalone
+#   docs service hostname (for CORS).
+slovo_backend_docs_enabled: false
+slovo_backend_docs_ui_origin: ''
 
 # Controls whether uninstall also removes all data (defaults to false).
 slovo_backend_uninstall_remove_data: false

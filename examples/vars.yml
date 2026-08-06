@@ -40,9 +40,9 @@ slovo_backend_jwt_refresh_secret: CHANGE_ME_different_random_string
 slovo_frontend_hostname: admin-app.example.com
 
 # =============================================================================
-# Swagger (standalone Swagger UI)
+# Docs (standalone docs site — Swagger UI)
 # =============================================================================
-slovo_swagger_hostname: docs.example.com
+slovo_docs_hostname: docs.example.com
 
 # =============================================================================
 # MinIO
