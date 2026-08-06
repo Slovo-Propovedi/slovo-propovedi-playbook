@@ -5,6 +5,7 @@ slovo_admin_user_enabled: true
 
 # Admin user details
 slovo_admin_user_name: "Admin"
+slovo_admin_user_username: ''  # Provide via vault; required for login (the admin logs in by username). Example: admin
 slovo_admin_user_email: ''  # User must provide via vault
 slovo_admin_user_password: ''  # Plaintext, will be bcrypt-hashed at runtime. User must provide via vault.
 

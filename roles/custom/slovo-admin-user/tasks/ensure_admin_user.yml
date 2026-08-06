@@ -1,5 +1,10 @@
 ---
 
+- name: Fail if admin user username is not set
+  ansible.builtin.fail:
+    msg: "You need to set `slovo_admin_user_username`"
+  when: "slovo_admin_user_username | length == 0"
+
 - name: Fail if admin user email is not set
   ansible.builtin.fail:
     msg: "You need to set `slovo_admin_user_email`"
@@ -53,9 +58,10 @@
   args:
     stdin: |
       \set name '{{ slovo_admin_user_name | replace("'", "''") }}'
+      \set username '{{ slovo_admin_user_username | replace("'", "''") }}'
       \set email '{{ slovo_admin_user_email | replace("'", "''") }}'
       \set hash '{{ slovo_admin_user_bcrypt_hash.stdout | replace("'", "''") }}'
-      INSERT INTO "user" (id, name, email, password) VALUES (gen_random_uuid(), :'name', :'email', :'hash') ON CONFLICT (email) DO NOTHING;
+      INSERT INTO "user" (id, name, username, email, password) VALUES (gen_random_uuid(), :'name', :'username', :'email', :'hash') ON CONFLICT (username) DO NOTHING;
   register: slovo_admin_user_insert_result
   changed_when: "'INSERT 0 1' in slovo_admin_user_insert_result.stdout"
   no_log: true
