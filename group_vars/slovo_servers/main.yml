@@ -180,7 +180,7 @@ slovo_backend_systemd_required_services_list_auto: |
 
 # Rate limiting: reference the `slovo-rate-limit` middleware defined in the Traefik section
 # on the API router. Empty means no middleware is attached.
-slovo_backend_container_labels_traefik_api_middlewares: "slovo-rate-limit"
+slovo_backend_container_labels_traefik_api_middlewares: "slovo-rate-limit@file"
 
 # =============================================================================
 # Frontend (Svelte 5 SPA)
