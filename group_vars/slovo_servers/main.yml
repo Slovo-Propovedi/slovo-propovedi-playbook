@@ -193,18 +193,16 @@ slovo_frontend_base_path: "{{ slovo_base_data_path }}/frontend"
 # Primary network
 slovo_frontend_container_network: slovo-frontend
 
-# Cross-network joins: frontend needs traefik (for routing) + backend (for /api proxy)
+# Cross-network joins: frontend needs traefik (for routing) only — the SPA calls
+# the API directly over HTTPS, so the frontend no longer joins the backend network.
 slovo_frontend_container_additional_networks_auto: |
   {{
     ([slovo_playbook_reverse_proxy_container_network] if slovo_playbook_traefik_labels_enabled and slovo_playbook_reverse_proxy_container_network else [])
-    + ([slovo_backend_container_network] if slovo_backend_enabled else [])
   }}
 
-# Frontend depends on traefik (routing) + backend (API proxy target)
-slovo_frontend_systemd_required_services_list_auto: |
-  {{
-    ([slovo_backend_identifier + '.service'] if slovo_backend_enabled else [])
-  }}
+# Frontend depends on docker (default) only — the SPA calls the API directly over
+# HTTPS, so the frontend no longer needs slovo-backend.service to start first.
+slovo_frontend_systemd_required_services_list_auto: []
 
 # =============================================================================
 # Docs (standalone docs site — Swagger UI + OpenAPI spec)

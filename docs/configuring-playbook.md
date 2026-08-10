@@ -106,9 +106,10 @@ traefik_config_certificatesResolvers_acme_email: admin@example.com
 # Backend hostname + JWT secrets
 # ──────────────────────────────────────────────
 slovo_backend_hostname: admin.example.com
-# Optional: separate subdomain for API requests (sermons, playlists CRUD).
-# Routes to the same backend container on port 3000; leave empty to serve
-# everything through slovo_backend_hostname.
+# Separate subdomain for API requests (sermons, playlists CRUD).
+# Routes to the same backend container on port 3000. REQUIRED when the frontend
+# is enabled — the SPA calls the API directly at this hostname, and the frontend
+# role fails validation if it's empty.
 slovo_backend_api_hostname: api.example.com
 slovo_backend_jwt_secret: CHANGE_ME_strong_random_secret
 slovo_backend_jwt_refresh_secret: CHANGE_ME_strong_random_secret
@@ -165,9 +166,9 @@ slovo_admin_user_password: CHANGE_ME_admin_password
 
 - **PostgreSQL** — the `slovo_backend_postgres_*` variables define the database user, password, and database name. The postgres role creates the database and user on startup (see `postgres_managed_databases_auto` in `group_vars`). The backend reaches PostgreSQL at the container name `slovo-postgres` (`POSTGRES_HOST` is wired automatically — you don't normally set it). The PostgreSQL port is hardcoded to `5432` in the backend source code.
 
-- **Backend hostname + JWT secrets** — `slovo_backend_hostname` is the public hostname of the API. The two JWT secrets must be strong random strings; they sign access and refresh tokens respectively. Never reuse them across environments. Optionally, `slovo_backend_api_hostname` exposes a **second subdomain** (e.g. `api.example.com`) for API requests; it routes to the same backend container on port 3000 via a separate Traefik router named `slovo-backend-api`. When left empty, no API router is created and everything is served through `slovo_backend_hostname`.
+- **Backend hostname + JWT secrets** — `slovo_backend_hostname` is the public hostname of the API. The two JWT secrets must be strong random strings; they sign access and refresh tokens respectively. Never reuse them across environments. `slovo_backend_api_hostname` (e.g. `api.example.com`) exposes a **separate subdomain** for API requests; it routes to the same backend container on port 3000 via a separate Traefik router named `slovo-backend-api`, and it must differ from `slovo_backend_hostname`. It is **required** whenever the frontend is enabled — the SPA calls the API directly at this hostname, and the frontend role fails validation if it's empty.
 
-- **Frontend hostname** — `slovo_frontend_hostname` is the public hostname of the admin panel web UI (e.g. `admin-app.example.com`, a Svelte 5 SPA served by nginx on port 8080). The SPA calls the API through the relative `/api` path; the frontend's nginx proxies those requests to the backend container on the shared Docker network. See [Deploying the frontend](deploying-frontend.md) for details.
+- **Frontend hostname** — `slovo_frontend_hostname` is the public hostname of the admin panel web UI (e.g. `admin-app.example.com`, a Svelte 5 SPA served by nginx on port 8080). The SPA calls the API **directly** at `https://{{ slovo_backend_api_hostname }}` (e.g. `https://api.example.com`); the frontend's nginx allows this via its CSP `connect-src` header, and the frontend does not need network or service access to the backend. `slovo_backend_api_hostname` must therefore be set (see the Backend section above). See [Deploying the frontend](deploying-frontend.md) for details.
 
 - **Docs hostname** — `slovo_docs_hostname` is the public hostname of the standalone docs site (e.g. `docs.example.com`). It is a static site self-built from the `slovo-propovedi-docs` repository and served by nginx on port 8080 in a read-only container. The backend's `DOCS_UI_ORIGIN` is wired automatically to `https://{{ slovo_docs_hostname }}` (when docs is enabled) so the backend's CORS allows the docs site to fetch the OpenAPI spec. If the backend should also serve its own spec endpoint, set `slovo_backend_docs_enabled: true` in your vars.
 

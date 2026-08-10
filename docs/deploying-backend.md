@@ -32,7 +32,7 @@ Both hostnames below are served by Traefik and route to the **same** backend con
 | `admin.example.com` | `slovo_backend_hostname` | Admin panel UI + docs (main router `slovo-backend`) |
 | `api.example.com` | `slovo_backend_api_hostname` | API requests — sermons, playlists CRUD, etc. (separate router `slovo-backend-api`) |
 
-The API subdomain is **optional**: when `slovo_backend_api_hostname` is empty (the default), no API router is created and all traffic goes through `slovo_backend_hostname`. Both routers must point at the same `slovo-backend` service (port 3000), and `slovo_backend_api_hostname` must differ from `slovo_backend_hostname` (the playbook fails otherwise, to avoid two Traefik routers with identical Host rules).
+The API subdomain is **required when the frontend is enabled** — the frontend role fails validation if `slovo_backend_api_hostname` is empty, because the SPA calls the API directly at this hostname and it must appear in the CSP `connect-src` header. The API subdomain is **optional only when the frontend is disabled**: when `slovo_backend_api_hostname` is empty (the default), no API router is created and all traffic goes through `slovo_backend_hostname`. Both routers must point at the same `slovo-backend` service (port 3000), and `slovo_backend_api_hostname` must differ from `slovo_backend_hostname` (the playbook fails otherwise, to avoid two Traefik routers with identical Host rules).
 
 ## Self-build process
 

@@ -23,48 +23,43 @@ The relevant playbook variables:
 | `slovo_frontend_container_src_path` | `{{ slovo_frontend_base_path }}/container-src` (i.e. `/slovo/frontend/container-src`) |
 | `slovo_frontend_container_image` | `slovo-frontend:latest` |
 | `slovo_frontend_container_port` | `8080` |
-| `slovo_frontend_backend_upstream` | `slovo-backend:3000` |
 | `slovo_frontend_hostname` | *(empty — must be set)* |
+| `slovo_backend_api_hostname` | *(empty — must be set; the SPA calls the API directly at this hostname)* |
 
-## The nginx reverse proxy
+## nginx configuration
 
-The SPA calls the API through the **relative `/api` path** (`fetch('/api/...')`), so all API traffic from the browser is served from the same hostname as the UI. The nginx inside the frontend container handles this: a `location /api/` block **strips the `/api` prefix** and proxies the request to the backend container on the shared Docker network:
+The SPA is a static bundle served by nginx, and it calls the API **directly** at `https://{{ slovo_backend_api_hostname }}` (in the production deployment: `https://api.slovo-propovedi.ru`). All API traffic goes straight from the browser to that hostname over HTTPS — nginx does not forward any requests to the backend.
+
+Because those API calls are **cross-origin**, nginx must tell the browser to allow them. The `Content-Security-Policy` header set by the config includes the API origin in `connect-src`:
 
 ```nginx
-location /api/ {
-    proxy_pass http://{{ slovo_frontend_backend_upstream }}/;
-    ...
-}
+add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; connect-src 'self' https://{{ slovo_backend_api_hostname }}; media-src 'self' https:;" always;
 ```
 
-The upstream (`slovo_frontend_backend_upstream`, default `slovo-backend:3000`) is the backend container name and port. Because nginx strips the `/api/` prefix, the backend receives plain `/sermons`, `/playlists`, etc. requests — the same requests it would receive if the browser talked to it directly.
+The rest of the server block is plain static serving: `root /usr/share/nginx/html`, long-term caching for `/assets/` (`expires 1y`), and the SPA fallback (`try_files $uri $uri/ /index.html`).
 
 ## Runtime-templated nginx.conf
 
-The frontend's Docker image has an nginx.conf **baked in** (`frontend/web-app/nginx.conf` in the repository). That version proxies `/api/` to `backend:3000` — the **docker-compose service name**, which does **not exist** in the playbook deployment (the backend container is named `slovo-backend`).
-
-The playbook therefore **templates its own nginx.conf at runtime** (exactly like it templates the backend's env file) and **mounts it into the container, overriding the baked-in one**:
+The frontend's Docker image ships with an nginx.conf **baked in** (`frontend/web-app/nginx.conf` in the repository). Because the API hostname (`slovo_backend_api_hostname`) is a deployment-specific value that must end up in the CSP `connect-src` header, the playbook **templates its own nginx.conf at runtime** (exactly like it templates the backend's env file) and **mounts it into the container, overriding the baked-in one**:
 
 - Template: `roles/custom/slovo-frontend/templates/nginx.conf.j2`
 - Rendered to: `{{ slovo_frontend_base_path }}/nginx.conf` (`/slovo/frontend/nginx.conf`)
 - Mounted into the container at `/etc/nginx/conf.d/default.conf:ro` via the systemd unit
 
-The only difference from the baked-in config is the `proxy_pass` target, which uses `slovo_frontend_backend_upstream` instead of the hardcoded `backend:3000`. All security headers, caching rules, and the SPA fallback (`try_files $uri $uri/ /index.html`) are identical.
+The templated config serves the static SPA, sets the security headers (including the CSP `connect-src` entry for `https://{{ slovo_backend_api_hostname }}`), and enables long-term caching for `/assets/`.
 
 > [!NOTE]
-> Do **not** edit the repository's `frontend/web-app/nginx.conf` for playbook deployments — that file is used by the docker-compose workflow. Playbook deployments get their config from the playbook's `nginx.conf.j2` template. To change the reverse-proxy behavior in a playbook deployment, edit the template and re-run the playbook.
+> Do **not** edit the repository's `frontend/web-app/nginx.conf` for playbook deployments — that file is used by the docker-compose workflow. Playbook deployments get their config from the playbook's `nginx.conf.j2` template. To change the nginx configuration (security headers, caching, CSP) in a playbook deployment, edit the template and re-run the playbook.
 
 ## Network connectivity
 
-The frontend container's primary network is `slovo-frontend`. It additionally joins two networks, wired in `slovo_frontend_container_additional_networks_auto` in `group_vars/slovo_servers/main.yml`:
+The frontend container's primary network is `slovo-frontend`. It additionally joins **one** network, wired in `slovo_frontend_container_additional_networks_auto` in `group_vars/slovo_servers/main.yml`:
 
 | Network | Why |
 | --- | --- |
 | `traefik` | So Traefik can route traffic to the container (shared reverse-proxy network) |
-| `slovo-backend` | So the frontend's nginx can reach the backend container at `slovo-backend:3000` for `/api/` requests |
 
-> [!IMPORTANT]
-> The frontend can only proxy to `slovo-backend:3000` because it is attached to the **`slovo-backend` network**. If that join is missing, `/api/` requests from the SPA fail with `502 Bad Gateway` from the frontend's nginx. Verify connectivity with `docker network inspect slovo-backend` — the `slovo-frontend` container must be listed.
+The frontend does **not** join the `slovo-backend` network: the SPA calls the API directly over HTTPS from the browser, so the nginx container never needs to reach the backend container itself.
 
 ## Self-build process
 
@@ -138,12 +133,13 @@ The frontend is exposed through Traefik on the hostname set in `slovo_frontend_h
 | --- | --- | --- |
 | `admin-app.example.com` | `slovo_frontend_hostname` | 8080 |
 
-Traefik routes `https://admin-app.example.com/...` to the `slovo-frontend` container on port 8080. The browser loads the SPA from this hostname, and all `/api/...` calls from the SPA go to the same hostname — nginx then proxies them to the backend container (`slovo-backend:3000`) over the shared Docker network, as described above.
+Traefik routes `https://admin-app.example.com/...` to the `slovo-frontend` container on port 8080. The browser loads the SPA from this hostname; the SPA then calls the API **directly** at `https://{{ slovo_backend_api_hostname }}` (a different hostname), which the nginx CSP `connect-src` header allows.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | How to check / fix |
 | --- | --- | --- |
-| SPA loads but API calls fail with `502 Bad Gateway` | Frontend is not on the `slovo-backend` network | `docker network inspect slovo-backend` — the `slovo-frontend` container must be listed. The join comes from `slovo_frontend_container_additional_networks_auto` in `group_vars`. |
-| `/api/` requests still go to `backend:3000` (docker-compose name) | Old/baked-in nginx.conf in use | Confirm the rendered config is mounted: `docker exec slovo-frontend cat /etc/nginx/conf.d/default.conf` — the `proxy_pass` must show `slovo-backend:3000`. Re-run the playbook so the templated `nginx.conf` is installed and the container restarts. |
-| `slovo-frontend.service` fails to start | `slovo_frontend_hostname` empty | The role fails validation when Traefik is enabled but no hostname is set. Set `slovo_frontend_hostname` in `vars.yml`. |
+| SPA loads but API calls fail | `slovo_backend_api_hostname` doesn't match the API the SPA is actually calling | Check the rendered config: `docker exec slovo-frontend cat /etc/nginx/conf.d/default.conf` — the CSP `connect-src` must include the exact API origin (`https://{{ slovo_backend_api_hostname }}`). Set the variable in `vars.yml` and re-run the playbook. |
+| API calls blocked by the browser (CSP "Refused to connect") | CSP `connect-src` doesn't include the API origin | Same as above — the CSP is templated from `slovo_backend_api_hostname`, so a blocked request means the variable is empty or wrong for the API the SPA calls. |
+| API calls rejected by the backend | The backend application doesn't allow the frontend origin (CORS) | Check the backend logs for CORS errors. Because the SPA calls the API cross-origin, the backend application must allow the frontend origin (`https://{{ slovo_frontend_hostname }}`). |
+| `slovo-frontend.service` fails to start | `slovo_frontend_hostname` or `slovo_backend_api_hostname` empty | The role fails validation: the Traefik hostname is required when Traefik is enabled, and `slovo_backend_api_hostname` is required whenever the frontend is enabled (the SPA calls the API directly at it). Set both in `vars.yml`. |

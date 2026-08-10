@@ -4,3 +4,8 @@
   ansible.builtin.fail:
     msg: "You need to set `slovo_frontend_hostname` when using Traefik"
   when: "slovo_frontend_container_labels_traefik_enabled | bool and slovo_frontend_hostname | length == 0"
+
+- name: Fail if frontend enabled but no backend API hostname specified
+  ansible.builtin.fail:
+    msg: "You need to set `slovo_backend_api_hostname` — the SPA calls the API directly at this hostname, and it is used in the nginx CSP `connect-src` header"
+  when: "slovo_frontend_enabled | bool and (slovo_backend_api_hostname | default('')) | length == 0"

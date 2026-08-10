@@ -33,11 +33,6 @@ slovo_frontend_container_image: "{{ slovo_frontend_identifier }}:latest"
 # The port nginx listens on inside the container (non-root, no special capabilities needed).
 slovo_frontend_container_port: 8080
 
-# The backend container address used by the frontend's nginx reverse proxy.
-# The frontend nginx proxies /api/ requests to this upstream.
-# Default: the backend container name and port on the shared Docker network.
-slovo_frontend_backend_upstream: "{{ slovo_backend_identifier }}:3000"
-
 # The base container network. It will be auto-created by this role if it doesn't exist already.
 slovo_frontend_container_network: ''
 
@@ -61,15 +56,15 @@ slovo_frontend_container_labels_traefik_tls: "{{ slovo_frontend_container_labels
 slovo_frontend_container_labels_traefik_tls_certResolver: default  # noqa var-naming
 
 # A list of extra arguments to pass to the container.
-# The frontend container is NOT read-only — nginx needs to write temp/cache files.
-# VPS optimization: cap memory at 64MB and mount a small RAM-backed cache dir for the
-# nginx proxy_cache (sermon-list API responses). Upload bodies are buffered on disk
-# (/tmp, see `client_body_temp_path` in the nginx config), not in this tmpfs.
+# The frontend container is NOT read-only — nginx needs to write temp files.
+# VPS optimization: cap memory at 64MB and mount a small RAM-backed temp dir for
+# nginx's general temp space (the old /api proxy_cache and its tmpfs requirement
+# were removed along with the reverse proxy — the SPA now calls the API directly).
 # The tmpfs is owned by the slovo system user (uid={{ slovo_user_uid }},
 # gid={{ slovo_user_gid }}) because the container runs as that non-root user and
-# nginx must create the `api_cache` directory declared by `proxy_cache_path` at
-# startup. Without uid/gid/mode, Docker mounts tmpfs root-owned (0755) and nginx
-# aborts with "mkdir() ... Permission denied" → crash-loop.
+# nginx must write to /var/cache/nginx at startup. Without uid/gid/mode, Docker
+# mounts tmpfs root-owned (0755) and nginx aborts with "mkdir() ... Permission
+# denied" → crash-loop.
 slovo_frontend_container_extra_arguments:
   - "--memory=64m"
   - "--tmpfs=/var/cache/nginx:rw,noexec,nosuid,size=32m,uid={{ slovo_user_uid }},gid={{ slovo_user_gid }},mode=0700"
