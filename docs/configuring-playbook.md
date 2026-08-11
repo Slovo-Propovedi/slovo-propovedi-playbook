@@ -10,7 +10,6 @@ Here's what gets installed on your server:
 | --- | --- | --- | --- |
 | Backend (NestJS) | `slovo-backend.service` | `slovo-backend` | Admin panel API + docs (port 3000) |
 | Frontend (Svelte 5) | `slovo-frontend.service` | `slovo-frontend` | Admin panel web UI (nginx-served SPA, port 8080) |
-| Docs (standalone) | `slovo-docs.service` | `slovo-docs` | Standalone docs site (Swagger UI) + OpenAPI spec (nginx-served, port 8080) |
 | PostgreSQL 18.4 | `slovo-postgres.service` | `slovo-postgres` | Primary database |
 | MinIO | `slovo-minio.service` | `slovo-minio` | S3-compatible object storage (API port 9000, console port 9001) |
 | Adminer (optional) | `slovo-adminer.service` | `slovo-adminer` | Web-based database administration (port 8080) |
@@ -120,11 +119,6 @@ slovo_backend_jwt_refresh_secret: CHANGE_ME_strong_random_secret
 slovo_frontend_hostname: admin-app.example.com
 
 # ──────────────────────────────────────────────
-# Docs hostname
-# ──────────────────────────────────────────────
-slovo_docs_hostname: docs.example.com
-
-# ──────────────────────────────────────────────
 # PostgreSQL credentials
 # ──────────────────────────────────────────────
 slovo_backend_postgres_user: slovo
@@ -170,7 +164,7 @@ slovo_admin_user_password: CHANGE_ME_admin_password
 
 - **Frontend hostname** — `slovo_frontend_hostname` is the public hostname of the admin panel web UI (e.g. `admin-app.example.com`, a Svelte 5 SPA served by nginx on port 8080). The SPA calls the API **directly** at `https://{{ slovo_backend_api_hostname }}` (e.g. `https://api.example.com`); the frontend's nginx allows this via its CSP `connect-src` header, and the frontend does not need network or service access to the backend. `slovo_backend_api_hostname` must therefore be set (see the Backend section above). See [Deploying the frontend](deploying-frontend.md) for details.
 
-- **Docs hostname** — `slovo_docs_hostname` is the public hostname of the standalone docs site (e.g. `docs.example.com`). It is a static site self-built from the `slovo-propovedi-docs` repository and served by nginx on port 8080 in a read-only container. The backend's `DOCS_UI_ORIGIN` is wired automatically to `https://{{ slovo_docs_hostname }}` (when docs is enabled) so the backend's CORS allows the docs site to fetch the OpenAPI spec. If the backend should also serve its own spec endpoint, set `slovo_backend_docs_enabled: true` in your vars.
+- **Docs origin (backend CORS)** — the standalone docs site (`slovo-propovedi-docs`) is now deployed independently via a Forgejo Actions workflow in its own repository (tag-triggered, built on the VPS). The backend's `DOCS_UI_ORIGIN` is hardcoded to `https://docs.slovo-propovedi.ru` in `group_vars` so CORS allows the docs site to fetch the OpenAPI spec. If the backend should also serve its own spec endpoint, set `slovo_backend_docs_enabled: true` in your vars.
 
 - **MinIO** — `slovo_minio_root_user`/`slovo_minio_root_password` are the MinIO server's root credentials. The backend's MinIO credentials (`slovo_backend_minio_access_key`/`slovo_backend_minio_secret_key`) and public S3 URI (`slovo_backend_minio_public_uri`) are **wired automatically** from the root credentials and `slovo_minio_hostname` in `group_vars/slovo_servers/main.yml`, so they always match and there is no credential drift. The endpoint (`slovo-minio`) and API port (`9000`) are also wired automatically.
 
@@ -206,7 +200,9 @@ just roles
 just setup-all
 ```
 
-This installs all services (Docker, PostgreSQL, MinIO, backend, frontend, docs, Adminer, Traefik) and starts them.
+This installs all services (Docker, PostgreSQL, MinIO, backend, frontend, Adminer, Traefik) and starts them.
+
+The standalone docs site is deployed separately via a Forgejo Actions workflow in the [slovo-propovedi-docs](https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-docs) repository.
 
 > [!NOTE]
 > Without `just`, run the equivalent `ansible-playbook` command:

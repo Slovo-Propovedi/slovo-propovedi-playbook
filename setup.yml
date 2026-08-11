@@ -81,13 +81,6 @@
         - install-slovo-frontend
         - install-all
 
-    - role: custom/slovo-docs
-      tags:
-        - setup-slovo-docs
-        - setup-all
-        - install-slovo-docs
-        - install-all
-
     - role: custom/slovo-adminer
       tags:
         - setup-slovo-adminer

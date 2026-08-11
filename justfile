@@ -69,12 +69,6 @@ setup-slovo-frontend *extra_args: (run-tags "setup-slovo-frontend,start" extra_a
 # Install slovo-frontend and start it
 install-slovo-frontend *extra_args: (run-tags "install-slovo-frontend,start" extra_args)
 
-# Set up slovo-docs and start it
-setup-slovo-docs *extra_args: (run-tags "setup-slovo-docs,start" extra_args)
-
-# Install slovo-docs and start it
-install-slovo-docs *extra_args: (run-tags "install-slovo-docs,start" extra_args)
-
 # Set up slovo-adminer and start it
 setup-slovo-adminer *extra_args: (run-tags "setup-slovo-adminer,start" extra_args)
 
