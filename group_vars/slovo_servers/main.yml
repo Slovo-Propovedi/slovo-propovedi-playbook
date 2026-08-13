@@ -1,6 +1,6 @@
 ---
 # slovo-propovedi-playbook group_vars
-# This file wires together all roles (postgres, traefik, backend, minio, adminer)
+# This file wires together all roles (postgres, traefik, pgbouncer, minio, adminer)
 
 # =============================================================================
 # Docker configuration
@@ -44,15 +44,11 @@ slovo_playbook_traefik_labels_enabled: "{{ traefik_enabled | bool }}"
 # CRITICAL: the Traefik label `traefik.docker.network` for every Traefik-exposed service must point to the
 # shared reverse-proxy network (the one each service joins via its `*_container_additional_networks_auto`),
 # NOT the service's own primary network. Traefik can only reach a container through a network it shares with it.
-slovo_backend_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
-slovo_frontend_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
 slovo_minio_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
 slovo_adminer_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
 
 # Each custom role gates its Traefik labels on `slovo_*_container_labels_traefik_enabled` (role default: true).
 # Wire them to the hub switch so that when Traefik is disabled, no service emits Traefik labels.
-slovo_backend_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
-slovo_frontend_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
 slovo_minio_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
 slovo_adminer_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
 
@@ -70,7 +66,7 @@ postgres_gid: "{{ slovo_user_gid }}"
 # The postgres role creates a network with this name
 postgres_container_network: slovo-postgres
 
-# Database credentials (wired from backend vars)
+# These credentials are shared by postgres + pgbouncer roles. Do not remove.
 postgres_connection_username: "{{ slovo_backend_postgres_user }}"
 postgres_connection_password: "{{ slovo_backend_postgres_password }}"
 postgres_db_name: "{{ slovo_backend_postgres_db }}"
@@ -118,14 +114,13 @@ traefik_config_entrypoint_web_transport_respondingTimeouts_readTimeout: 300s
 traefik_config_entrypoint_web_secure_transport_respondingTimeouts_readTimeout: 300s
 
 # VPS optimization: 1 vCPU — gzip-only compression. zstd/brotli are CPU-heavy
-# and would steal cycles from the backend on a single-core box.
+# and would steal cycles from the services on a single-core box.
 traefik_config_http_middlewares_compression_middleware_config_encodings_zstd_enabled: false
 traefik_config_http_middlewares_compression_middleware_config_encodings_br_enabled: false
 # gzip stays enabled (role default).
 
-# Per-source-IP rate limiting for the public API router (api.<host>).
-# The middleware is defined here and referenced by the backend's API router
-# labels via `slovo_backend_container_labels_traefik_api_middlewares`.
+# Per-source-IP rate limiting for Traefik-exposed API routers.
+# The middleware is defined here; services attach it via their Traefik labels.
 traefik_config_http_middlewares_custom:
   slovo-rate-limit:
     rateLimit:
@@ -136,81 +131,6 @@ traefik_config_http_middlewares_custom:
 traefik_container_extra_arguments: ["--memory=128m"]
 
 traefik_systemd_required_services_list: "{{ [devture_systemd_docker_base_docker_service_name] }}"
-
-# =============================================================================
-# Backend (NestJS)
-# =============================================================================
-
-# Backend is now deployed via Forgejo Actions (slovo-propovedi-backend repo).
-# Do not remove — postgres/pgbouncer roles still consume slovo_backend_postgres_* vars.
-slovo_backend_enabled: false
-slovo_backend_identifier: slovo-backend
-slovo_backend_base_path: "{{ slovo_base_data_path }}/backend"
-
-# Primary network
-slovo_backend_container_network: slovo-backend
-
-# Postgres connection — reach by container name on shared network.
-# When PgBouncer is enabled, the backend talks to the pooler instead of postgres directly.
-# PgBouncer listens on 5432 internally because the backend hardcodes POSTGRES_PORT=5432
-# (see docs/deploying-backend.md).
-slovo_backend_postgres_host: "{{ slovo_pgbouncer_identifier if slovo_pgbouncer_enabled | default(false) | bool else postgres_identifier }}"
-slovo_backend_postgres_port: "{{ slovo_pgbouncer_container_port if slovo_pgbouncer_enabled | default(false) | bool else postgres_connection_port }}"
-
-# MinIO connection — reach by container name on shared network
-slovo_backend_minio_endpoint: "{{ slovo_minio_identifier }}"
-slovo_backend_minio_main_port_in: 9000
-
-# Cross-network joins: backend must reach traefik (for routing) + postgres (DB) + minio (S3).
-# PgBouncer joins the postgres network too, so the backend reaches it through that network.
-slovo_backend_container_additional_networks_auto: |
-  {{
-    ([slovo_playbook_reverse_proxy_container_network] if slovo_playbook_traefik_labels_enabled and slovo_playbook_reverse_proxy_container_network else [])
-    + ([postgres_container_network] if postgres_enabled else [])
-    + ([slovo_minio_container_network] if slovo_minio_enabled else [])
-  }}
-
-# Backend depends on postgres and minio being up (plus pgbouncer, when enabled)
-slovo_backend_systemd_required_services_list_auto: |
-  {{
-    ([postgres_identifier + '.service'] if postgres_enabled else [])
-    + ([slovo_pgbouncer_identifier + '.service'] if slovo_pgbouncer_enabled | default(false) | bool else [])
-    + ([slovo_minio_identifier + '.service'] if slovo_minio_enabled else [])
-  }}
-
-# Rate limiting: reference the `slovo-rate-limit` middleware defined in the Traefik section
-# on the API router. Empty means no middleware is attached.
-slovo_backend_container_labels_traefik_api_middlewares: "slovo-rate-limit@file"
-
-# =============================================================================
-# Frontend (Svelte 5 SPA)
-# =============================================================================
-
-slovo_frontend_enabled: true
-slovo_frontend_identifier: slovo-frontend
-slovo_frontend_base_path: "{{ slovo_base_data_path }}/frontend"
-
-# Primary network
-slovo_frontend_container_network: slovo-frontend
-
-# Cross-network joins: frontend needs traefik (for routing) only — the SPA calls
-# the API directly over HTTPS, so the frontend no longer joins the backend network.
-slovo_frontend_container_additional_networks_auto: |
-  {{
-    ([slovo_playbook_reverse_proxy_container_network] if slovo_playbook_traefik_labels_enabled and slovo_playbook_reverse_proxy_container_network else [])
-  }}
-
-# Frontend depends on docker (default) only — the SPA calls the API directly over
-# HTTPS, so the frontend no longer needs slovo-backend.service to start first.
-slovo_frontend_systemd_required_services_list_auto: []
-
-# =============================================================================
-# Docs origin (backend CORS)
-# =============================================================================
-# The docs site is now deployed independently via a Forgejo Actions workflow
-# in the slovo-propovedi-docs repo. The backend still needs to know the docs
-# origin for CORS — hardcoded here since the docs Ansible role is gone.
-slovo_backend_docs_ui_origin: "https://docs.slovo-propovedi.ru"
 
 # =============================================================================
 # MinIO
@@ -228,12 +148,6 @@ slovo_minio_container_additional_networks_auto: |
   {{
     ([slovo_playbook_reverse_proxy_container_network] if slovo_playbook_traefik_labels_enabled and slovo_playbook_reverse_proxy_container_network else [])
   }}
-
-# Backend MinIO credentials — wired from MinIO's root credentials (no credential drift).
-# The backend shares the same credentials the MinIO server itself uses.
-slovo_backend_minio_access_key: "{{ slovo_minio_root_user }}"
-slovo_backend_minio_secret_key: "{{ slovo_minio_root_password }}"
-slovo_backend_minio_public_uri: "https://{{ slovo_minio_hostname }}"
 
 # =============================================================================
 # Adminer
@@ -263,23 +177,22 @@ slovo_adminer_systemd_required_services_list_auto: |
 # PgBouncer (connection pooler in front of postgres)
 # =============================================================================
 # PgBouncer is an INTERNAL service: it has no Traefik labels, no hostname, and
-# is never exposed to the internet. It pools the backend's DB connections so
+# is never exposed to the internet. It pools database connections so
 # postgres only ever sees a handful of them (max_connections is capped at 20).
 
 slovo_pgbouncer_enabled: true
 slovo_pgbouncer_identifier: slovo-pgbouncer
 
 # The port PgBouncer listens on inside its container.
-# NOTE: this is deliberately 5432, NOT 6432 — the backend source hardcodes
-# POSTGRES_PORT=5432 (see docs/deploying-backend.md) and cannot be told to use
-# another port, so the pooler must listen on 5432 for the backend to reach it.
+# NOTE: this is deliberately 5432, NOT 6432 — the backend service (deployed
+# separately via Forgejo Actions) hardcodes POSTGRES_PORT=5432 and cannot be told
+# to use another port, so the pooler must listen on 5432 for it to reach the DB.
 slovo_pgbouncer_container_port: 5432
 
 # Primary network (own — for self-containment, following the per-service pattern)
 slovo_pgbouncer_container_network: slovo-pgbouncer
 
-# Cross-network joins: pgbouncer must reach postgres (and thereby be reachable
-# by the backend, which is already on the postgres network).
+# Cross-network joins: pgbouncer must reach postgres
 slovo_pgbouncer_container_additional_networks_auto: |
   {{
     ([postgres_container_network] if postgres_enabled else [])
@@ -308,7 +221,7 @@ slovo_admin_user_enabled: true
 # Service registry for systemd_service_manager
 # =============================================================================
 # Lower priority = starts first, stops last
-# Order: traefik (250) → postgres (500) → pgbouncer (550) → minio (600) → backend (2000) → adminer (2100)
+# Order: traefik (250) → postgres (500) → pgbouncer (550) → minio (600) → adminer (2100)
 
 # VPS optimization: restart services in priority batches (non-blocking within each
 # priority level), so a restart storm doesn't overwhelm a single-core box.
@@ -324,7 +237,6 @@ devture_systemd_service_manager_services_list_auto: |
     + ([{'name': 'slovo-postgres.service', 'priority': 500, 'restart_necessary': postgres_restart_necessary | bool, 'groups': ['slovo', 'postgres']}] if postgres_enabled else [])
     + ([{'name': 'slovo-pgbouncer.service', 'priority': 550, 'restart_necessary': slovo_pgbouncer_restart_necessary | bool, 'groups': ['slovo', 'pgbouncer']}] if slovo_pgbouncer_enabled else [])
     + ([{'name': 'slovo-minio.service', 'priority': 600, 'restart_necessary': slovo_minio_restart_necessary | bool, 'groups': ['slovo', 'minio']}] if slovo_minio_enabled else [])
-    + ([{'name': 'slovo-backend.service', 'priority': 2000, 'restart_necessary': slovo_backend_restart_necessary | bool, 'groups': ['slovo', 'backend']}] if slovo_backend_enabled else [])
     + ([{'name': 'slovo-adminer.service', 'priority': 2100, 'restart_necessary': slovo_adminer_restart_necessary | bool, 'groups': ['slovo', 'adminer']}] if slovo_adminer_enabled else [])
    }}
 

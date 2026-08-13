@@ -13,31 +13,12 @@ slovo_base_data_path: /slovo
 slovo_playbook_reverse_proxy_type: playbook-managed-traefik
 
 # =============================================================================
-# Postgres (wired from backend vars)
+# Postgres
 # =============================================================================
-# The backend's postgres credentials are used to create the database
+# These credentials are shared by postgres + pgbouncer roles. Do not remove.
 slovo_backend_postgres_user: slovo
 slovo_backend_postgres_password: CHANGE_ME_strong_password_here
 slovo_backend_postgres_db: slovo
-
-# =============================================================================
-# Backend (NestJS)
-# =============================================================================
-slovo_backend_hostname: admin.example.com
-# API subdomain for API requests (adding/removing sermons, etc.)
-# Routes to the same backend container on port 3000.
-slovo_backend_api_hostname: api.example.com
-slovo_backend_jwt_secret: CHANGE_ME_generate_random_string
-slovo_backend_jwt_refresh_secret: CHANGE_ME_different_random_string
-
-# MinIO connection (internal, via Docker network)
-# slovo_backend_minio_endpoint is set in group_vars to the minio container name
-# slovo_backend_minio_main_port_in is set in group_vars to 9000
-
-# =============================================================================
-# Frontend (Svelte 5 SPA)
-# =============================================================================
-slovo_frontend_hostname: admin-app.example.com
 
 # =============================================================================
 # MinIO

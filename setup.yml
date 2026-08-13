@@ -39,8 +39,7 @@
         - install-docker
         - install-all
 
-    # Creates a single shared, resource-constrained buildx builder used by the
-    # self-built backend service (frontend and docs are built by Forgejo Actions).
+    # Creates a single shared, resource-constrained buildx builder for self-built services.
     # Must run AFTER docker is installed and BEFORE the first self-build role.
     - role: custom/slovo-buildx
       tags:
@@ -51,8 +50,7 @@
 
     - role: galaxy/postgres
 
-    # PgBouncer runs right after postgres (its postgres network must exist first),
-    # and before the backend, which connects to the database through the pooler.
+    # PgBouncer runs right after postgres (its postgres network must exist first).
     - role: custom/slovo-pgbouncer
       tags:
         - setup-slovo-pgbouncer
@@ -67,28 +65,12 @@
         - install-slovo-minio
         - install-all
 
-    # Backend deployed via Forgejo Actions — role disabled to prevent
-    # uninstall.yml from removing the Forgejo-managed container.
-    # - role: custom/slovo-backend
-    #   tags:
-    #     - setup-slovo-backend
-    #     - setup-all
-    #     - install-slovo-backend
-    #     - install-all
-
     - role: custom/slovo-adminer
       tags:
         - setup-slovo-adminer
         - setup-all
         - install-slovo-adminer
         - install-all
-
-    # This role is meant to be run on-demand (e.g. `ansible-playbook setup.yml --tags=ensure-slovo-users-created`)
-    # and intentionally does NOT get the setup-all/install-all tags.
-    - role: custom/slovo-admin-user
-      tags:
-        - ensure-slovo-users-created
-        - ensure-users-created
 
     - role: galaxy/traefik
 

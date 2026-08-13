@@ -1,15 +1,13 @@
 # slovo-propovedi-playbook
 
-Ansible playbook for deploying the slovo-propovedi-admin NestJS admin panel.
+Ansible playbook for deploying the slovo-propovedi infrastructure services (PostgreSQL, PgBouncer, MinIO, Adminer, Traefik).
 
 This playbook follows the [matrix-docker-ansible-deploy](https://github.com/spantaleev/matrix-docker-ansible-deploy) pattern: every service runs in a Docker container managed by systemd, with Traefik as the reverse proxy in front of everything.
 
 ## Features
 
-- **Backend (NestJS 10)** — the slovo-propovedi-admin panel API
-- **Frontend (Svelte 5)** — the admin panel web UI, served by nginx
-- **Docs (standalone)** — self-hosted API documentation (Swagger UI) + OpenAPI spec
 - **PostgreSQL 18.4** — primary database
+- **PgBouncer** — connection pooling in front of PostgreSQL
 - **MinIO** — S3-compatible object storage
 - **Adminer** — web-based database administration
 - **Traefik** — reverse proxy with automatic Let's Encrypt certificates
@@ -21,8 +19,6 @@ This playbook follows the [matrix-docker-ansible-deploy](https://github.com/span
 - **just** — the command runner used by the `justfile` (see [just](https://github.com/casey/just)). If you don't have it, you can run the raw `ansible-playbook` commands instead (see the note in the quick start below)
 - **Docker** on the target host
 - **Python 3 with the `bcrypt` module** on the target host (required for admin user seeding)
-- **git + docker buildx** on the target host (required for building images from source — backend and docs)
-- **SSH access to git.lightnode.ru** from the target host (required for cloning the backend and docs repositories)
 
 ## Quick start
 
@@ -81,8 +77,6 @@ This playbook follows the [matrix-docker-ansible-deploy](https://github.com/span
 ## Documentation
 
 - [Configuring the playbook](docs/configuring-playbook.md)
-- [Deploying the backend](docs/deploying-backend.md)
-- [Deploying the frontend](docs/deploying-frontend.md)
 - [Configuring Traefik](docs/configuring-traefik.md)
 
 ## License

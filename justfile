@@ -57,12 +57,6 @@ setup-slovo-minio *extra_args: (run-tags "setup-slovo-minio,start" extra_args)
 # Install slovo-minio and start it
 install-slovo-minio *extra_args: (run-tags "install-slovo-minio,start" extra_args)
 
-# Set up slovo-backend and start it
-setup-slovo-backend *extra_args: (run-tags "setup-slovo-backend,start" extra_args)
-
-# Install slovo-backend and start it
-install-slovo-backend *extra_args: (run-tags "install-slovo-backend,start" extra_args)
-
 # Set up slovo-adminer and start it
 setup-slovo-adminer *extra_args: (run-tags "setup-slovo-adminer,start" extra_args)
 
