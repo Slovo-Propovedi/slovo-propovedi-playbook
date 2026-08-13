@@ -306,7 +306,7 @@ slovo_admin_user_enabled: true
 # Service registry for systemd_service_manager
 # =============================================================================
 # Lower priority = starts first, stops last
-# Order: traefik (250) → postgres (500) → pgbouncer (550) → minio (600) → backend (2000) → frontend (2050) → adminer (2100)
+# Order: traefik (250) → postgres (500) → pgbouncer (550) → minio (600) → backend (2000) → adminer (2100)
 
 # VPS optimization: restart services in priority batches (non-blocking within each
 # priority level), so a restart storm doesn't overwhelm a single-core box.

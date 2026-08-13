@@ -8,7 +8,7 @@ This document describes how the slovo-propovedi-admin **backend** is built and d
 
 The backend is a **NestJS 10** application (Node 18, TypeScript) that serves the admin panel API and the API documentation (Swagger). It is deployed as a Docker container, **self-built from source** rather than pulled from a registry.
 
-- Repository: `ssh://git@git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-backend.git`
+- Repository: `https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-backend.git`
 - Branch: `main`
 - Image name: `slovo-backend:latest`
 - Served on container port `3000` (exposed to the outside world only through Traefik)
@@ -18,7 +18,7 @@ The relevant playbook variables:
 | Variable | Default |
 | --- | --- |
 | `slovo_backend_container_image_self_build` | `true` |
-| `slovo_backend_container_image_self_build_repo` | `ssh://git@git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-backend.git` |
+| `slovo_backend_container_image_self_build_repo` | `https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-backend.git` |
 | `slovo_backend_container_image_self_build_repo_version` | `main` |
 | `slovo_backend_container_src_path` | `{{ slovo_backend_base_path }}/container-src` (i.e. `/slovo/backend/container-src`) |
 | `slovo_backend_container_image` | `slovo-backend:latest` |
@@ -39,9 +39,9 @@ The API subdomain is **required when the frontend is enabled** — the frontend 
 During installation (the `setup-slovo-backend` / `setup-all` tags), the playbook:
 
 1. Ensures the repository directory (`{{ slovo_backend_container_src_path }}`) is owned by the `slovo` user.
-2. Clones (or updates) the repository **as the `slovo` user** via `ansible.builtin.git`:
+2. Clones (or updates) the repository over HTTPS via `ansible.builtin.git`:
    ```sh
-   git clone ssh://git@git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-backend.git <src_path>
+   git clone https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-backend.git <src_path>
    ```
    on the `main` branch (`force: yes`, so a rerun always matches the remote).
 3. Builds the image with Docker Buildx, using the shared constrained builder (`--builder=slovo-constrained`, see [Build resource limits](#build-resource-limits)). `--load` exports the built image to the local Docker store:
@@ -90,10 +90,10 @@ Because the image is self-built, the target host needs:
 
 - **`git`** — for cloning the repository.
 - **`docker buildx`** — for building the image (included with Docker ≥ 23; on older Docker installs the `docker-buildx-plugin` package may be required).
-- **SSH access to `git.lightnode.ru` for the `slovo` user** — the clone runs as the `slovo` user, so that user's `~/.ssh` must contain a private key whose public key is authorized on `git.lightnode.ru`. Set this up **before** running the playbook, or the backend role will fail.
+- **Public HTTPS read access to `git.lightnode.ru`** — the repository is cloned over HTTPS with no SSH key, so the backend repository must be publicly readable over HTTPS. No key setup is needed.
 
 > [!WARNING]
-> If the `slovo` user has no working SSH key for `git.lightnode.ru`, the `Ensure slovo-backend repository is present on self-build` task fails. This is the most common cause of backend installation failures.
+> If `git.lightnode.ru` is unreachable over HTTPS or the backend repository is not publicly readable, the `Ensure slovo-backend repository is present on self-build` task fails. This is the most common cause of backend installation failures.
 
 ## Environment variables
 
@@ -194,6 +194,6 @@ Additionally, the container is started with:
 | Symptom | Likely cause | How to check / fix |
 | --- | --- | --- |
 | `slovo-backend.service` fails to start | Empty required env vars | `journalctl -u slovo-backend.service` — check for `JWT_SECRET`, `POSTGRES_PASSWORD`, etc. Fill them in `vars.yml` and re-run the playbook. |
-| Self-build task fails | SSH key for `git.lightnode.ru` not set up for the `slovo` user | Add the `slovo` user's public key to `git.lightnode.ru` and re-run the playbook. |
+| Self-build task fails | `git.lightnode.ru` unreachable over HTTPS or the backend repository not publicly readable | Check HTTPS reachability from the server and confirm the repository is publicly readable, then re-run the playbook. |
 | Backend can't connect to the database | Network join missing | `docker network inspect slovo-postgres` — the `slovo-backend` container must be attached. The joins come from `slovo_backend_container_additional_networks_auto` in `group_vars`. |
 | MinIO auth errors on upload | Backend MinIO credentials mismatch | Ensure `slovo_backend_minio_access_key`/`slovo_backend_minio_secret_key` match `slovo_minio_root_user`/`slovo_minio_root_password`. |

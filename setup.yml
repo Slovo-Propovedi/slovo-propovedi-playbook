@@ -39,9 +39,9 @@
         - install-docker
         - install-all
 
-    # Creates a single shared, resource-constrained buildx builder used by every
-    # self-built service (backend, frontend, docs). Must run AFTER docker is
-    # installed and BEFORE the first self-build role.
+    # Creates a single shared, resource-constrained buildx builder used by the
+    # self-built backend service (frontend and docs are built by Forgejo Actions).
+    # Must run AFTER docker is installed and BEFORE the first self-build role.
     - role: custom/slovo-buildx
       tags:
         - setup-slovo-buildx
