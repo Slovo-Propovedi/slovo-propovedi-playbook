@@ -67,12 +67,14 @@
         - install-slovo-minio
         - install-all
 
-    - role: custom/slovo-backend
-      tags:
-        - setup-slovo-backend
-        - setup-all
-        - install-slovo-backend
-        - install-all
+    # Backend deployed via Forgejo Actions — role disabled to prevent
+    # uninstall.yml from removing the Forgejo-managed container.
+    # - role: custom/slovo-backend
+    #   tags:
+    #     - setup-slovo-backend
+    #     - setup-all
+    #     - install-slovo-backend
+    #     - install-all
 
     - role: custom/slovo-adminer
       tags:

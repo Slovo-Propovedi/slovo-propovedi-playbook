@@ -141,7 +141,9 @@ traefik_systemd_required_services_list: "{{ [devture_systemd_docker_base_docker_
 # Backend (NestJS)
 # =============================================================================
 
-slovo_backend_enabled: true
+# Backend is now deployed via Forgejo Actions (slovo-propovedi-backend repo).
+# Do not remove — postgres/pgbouncer roles still consume slovo_backend_postgres_* vars.
+slovo_backend_enabled: false
 slovo_backend_identifier: slovo-backend
 slovo_backend_base_path: "{{ slovo_base_data_path }}/backend"
 
