@@ -84,8 +84,8 @@
           --builder={{ slovo_buildx_builder_name }}
           --load
           --tag={{ slovo_backend_container_image }}
-          --file={{ slovo_backend_container_src_path }}/backend/Dockerfile
-          {{ slovo_backend_container_src_path }}/backend
+          --file={{ slovo_backend_container_src_path }}/Dockerfile
+          {{ slovo_backend_container_src_path }}
       when: slovo_backend_git_pull_changed.changed
       register: slovo_backend_docker_image_build_changed
 

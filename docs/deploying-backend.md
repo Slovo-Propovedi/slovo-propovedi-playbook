@@ -8,8 +8,8 @@ This document describes how the slovo-propovedi-admin **backend** is built and d
 
 The backend is a **NestJS 10** application (Node 18, TypeScript) that serves the admin panel API and the API documentation (Swagger). It is deployed as a Docker container, **self-built from source** rather than pulled from a registry.
 
-- Repository: `ssh://git@git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-admin.git`
-- Branch: `master`
+- Repository: `ssh://git@git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-backend.git`
+- Branch: `main`
 - Image name: `slovo-backend:latest`
 - Served on container port `3000` (exposed to the outside world only through Traefik)
 
@@ -18,8 +18,8 @@ The relevant playbook variables:
 | Variable | Default |
 | --- | --- |
 | `slovo_backend_container_image_self_build` | `true` |
-| `slovo_backend_container_image_self_build_repo` | `ssh://git@git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-admin.git` |
-| `slovo_backend_container_image_self_build_repo_version` | `master` |
+| `slovo_backend_container_image_self_build_repo` | `ssh://git@git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-backend.git` |
+| `slovo_backend_container_image_self_build_repo_version` | `main` |
 | `slovo_backend_container_src_path` | `{{ slovo_backend_base_path }}/container-src` (i.e. `/slovo/backend/container-src`) |
 | `slovo_backend_container_image` | `slovo-backend:latest` |
 
@@ -41,19 +41,19 @@ During installation (the `setup-slovo-backend` / `setup-all` tags), the playbook
 1. Ensures the repository directory (`{{ slovo_backend_container_src_path }}`) is owned by the `slovo` user.
 2. Clones (or updates) the repository **as the `slovo` user** via `ansible.builtin.git`:
    ```sh
-   git clone ssh://git@git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-admin.git <src_path>
+   git clone ssh://git@git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-backend.git <src_path>
    ```
-   on the `master` branch (`force: yes`, so a rerun always matches the remote).
+   on the `main` branch (`force: yes`, so a rerun always matches the remote).
 3. Builds the image with Docker Buildx, using the shared constrained builder (`--builder=slovo-constrained`, see [Build resource limits](#build-resource-limits)). `--load` exports the built image to the local Docker store:
    ```sh
    docker buildx build \
      --builder=slovo-constrained \
      --load \
      --tag=slovo-backend:latest \
-     --file=<src_path>/backend/Dockerfile \
-     <src_path>/backend
+     --file=<src_path>/Dockerfile \
+     <src_path>
    ```
-   The `backend/Dockerfile` is used and `backend/` is the build context.
+   The `Dockerfile` is used and the repository root is the build context.
 
 The image is rebuilt whenever the git checkout changes or the `setup-all` tags are re-run, so updating the backend is as simple as re-running the playbook:
 

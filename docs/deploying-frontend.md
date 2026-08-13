@@ -2,6 +2,9 @@
 
 <sup>[Configuring the playbook](configuring-playbook.md) > Deploying the frontend</sup>
 
+> [!NOTE]
+> The frontend now deploys via **Forgejo Actions**: pushing a `v*` tag triggers `.forgejo/workflows/release.yml` in the `slovo-propovedi-admin` repository, which runs `scripts/vps-deploy.sh` on the server. The Ansible `slovo-frontend` role is **retired** from the playbook run list (it no longer appears in `setup.yml`); the instructions below are kept for historical reference only.
+
 This document describes how the slovo-propovedi-admin **frontend** is built and deployed by the playbook, and the things you should know when operating it.
 
 ## Overview

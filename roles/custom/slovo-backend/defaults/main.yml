@@ -2,7 +2,7 @@
 
 # slovo-backend is the NestJS backend for slovo-propovedi.
 # Project source code URL: https://github.com/egoreast/slovo-propovedi-admin
-# The container image is built locally from the repository (see `backend/Dockerfile` in the repo).
+# The container image is built locally from the repository (see `Dockerfile` in the repo).
 
 slovo_backend_enabled: true
 
@@ -20,8 +20,8 @@ slovo_backend_base_path: "{{ slovo_base_data_path }}/backend"
 
 # Self-build (the container image is built locally from the git repository).
 slovo_backend_container_image_self_build: true
-slovo_backend_container_image_self_build_repo: "https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-admin.git"
-slovo_backend_container_image_self_build_repo_version: "master"
+slovo_backend_container_image_self_build_repo: "https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-backend.git"
+slovo_backend_container_image_self_build_repo_version: "main"
 slovo_backend_container_src_path: "{{ slovo_backend_base_path }}/container-src"
 
 # Build resource limits are enforced by the shared constrained buildx builder
