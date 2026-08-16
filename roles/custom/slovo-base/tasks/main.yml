@@ -27,3 +27,32 @@
         mode: "{{ slovo_base_data_path_mode }}"
         owner: "{{ slovo_user_name }}"
         group: "{{ slovo_group_name }}"
+
+- tags:
+    - setup-all
+    - install-all
+    - common
+  block:
+    - name: Ensure the systemd journald drop-in directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/journald.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Limit the systemd journald disk usage
+      ansible.builtin.copy:
+        dest: /etc/systemd/journald.conf.d/99-size-limit.conf
+        content: |
+          [Journal]
+          SystemMaxUse={{ slovo_journald_system_max_use }}
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart systemd-journald
+
+# Run the restart now: if a later task fails, pending handlers would never fire,
+# and the next run would report ok without applying the limit to the running journald.
+- name: Apply the journald limit now (flush handlers)
+  ansible.builtin.meta: flush_handlers

@@ -23,3 +23,8 @@ slovo_architecture: "{{ 'amd64' if ansible_facts.architecture == 'x86_64' else (
 # Reverse proxy
 slovo_playbook_reverse_proxy_type: ''  # '' or 'playbook-managed-traefik'
 slovo_playbook_reverse_proxy_container_network: "{{ 'traefik' if slovo_playbook_reverse_proxy_type == 'playbook-managed-traefik' else '' }}"
+
+# systemd journald retention limit, applied via a drop-in
+# at /etc/systemd/journald.conf.d/99-size-limit.conf.
+# Keeps the journal from growing unbounded on the small VPS disk.
+slovo_journald_system_max_use: "200M"
