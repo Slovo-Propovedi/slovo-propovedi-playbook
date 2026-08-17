@@ -171,6 +171,13 @@ ssh root@95.215.56.235 'systemctl is-active slovo-traefik slovo-postgres slovo-p
 > Промежуточные архивы не создаются (tar-пайп из ранних версий удалён — на
 > старом VPS нет места).
 
+**Шаг 0 — убедиться, что tmux есть на новом VPS** (чистый Debian 13 — может
+отсутствовать):
+
+```bash
+ssh root@95.215.56.235 'command -v tmux || apt-get install -y tmux'
+```
+
 **Шаг 1 — проверить rsync на обоих серверах** (на чистом Debian 13 может
 отсутствовать):
 
@@ -187,17 +194,30 @@ ssh root@95.215.56.235 'ssh-keygen -t ed25519 -f /root/.ssh/migr_tmp -N "" && ca
 ssh root@92.63.103.147 'echo "<PUB_ИЗ_ВЫВОДА>" >> /root/.ssh/authorized_keys'
 ```
 
-**Шаг 3 — предсинк** (rsync докачает только недостающее: сверка размер+mtime;
-частично скопированное ранее не мешает):
+**Шаг 3 — предсинк в tmux** (rsync докачает только недостающее: сверка
+размер+mtime; частично скопированное ранее не мешает). Сессия tmux живёт после
+закрытия терминала — локальный ноутбук/VPN можно закрыть, rsync продолжит идти
+на VPS:
 
 ```bash
-ssh root@95.215.56.235 'rsync -az --info=progress2 -e "ssh -i /root/.ssh/migr_tmp -o StrictHostKeyChecking=accept-new" root@92.63.103.147:/slovo/minio/data/ /slovo/minio/data/'
+ssh root@95.215.56.235
+tmux new -s minio-sync
+rsync -az --info=progress2 -e "ssh -i /root/.ssh/migr_tmp -o StrictHostKeyChecking=accept-new" root@92.63.103.147:/slovo/minio/data/ /slovo/minio/data/
 ```
 
-> [!TIP]
-> Для устойчивости к обрывам ssh-сессии запускать в tmux на новом VPS; прогресс
-> виден благодаря `--info=progress2`; проверить объём:
-> `ssh root@95.215.56.235 'du -sh /slovo/minio/data'`.
+- **Отсоединение от сессии:** `Ctrl+B`, затем `D` — после этого локальный
+  терминал/VPN можно закрыть.
+- **Возвращение к сессии:**
+  `ssh -t root@95.215.56.235 'tmux attach -t minio-sync'`
+- **Быстрая проверка без захода внутрь:**
+
+```bash
+ssh root@95.215.56.235 'pgrep -a rsync; tmux ls; du -sh /slovo/minio/data'
+```
+
+> [!NOTE]
+> rsync показал промпт = команда завершилась; саму сессию закрыть через `exit`
+> или `tmux kill-session -t minio-sync`.
 
 > [!NOTE]
 > rsync без `--numeric-ids` маппит владельца по имени (uid/gid юзера `slovo` на
@@ -272,6 +292,12 @@ ssh root@95.215.56.235 'systemctl stop slovo-minio'
 ```bash
 ssh root@95.215.56.235 'rsync -az --delete --info=progress2 -e "ssh -i /root/.ssh/migr_tmp" root@92.63.103.147:/slovo/minio/data/ /slovo/minio/data/'
 ```
+
+> [!NOTE]
+> Дельта запускается так же в tmux, как предсинк (Фаза 0, шаг 0.4):
+> переиспользовать сессию `tmux attach -t minio-sync` или создать новую
+> `tmux new -s minio-delta`. Команды rsync не меняются — они только
+> выполняются внутри сессии tmux, чтобы ноутбук можно было закрыть.
 
 Запустить MinIO обратно:
 
