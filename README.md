@@ -78,6 +78,7 @@ This playbook follows the [matrix-docker-ansible-deploy](https://github.com/span
 
 - [Configuring the playbook](docs/configuring-playbook.md)
 - [Configuring Traefik](docs/configuring-traefik.md)
+- [VPS migration runbook — August 2026](docs/migration-2026-08-vps.md)
 
 ## License
 
