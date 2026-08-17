@@ -164,18 +164,52 @@ ssh root@95.215.56.235 'systemctl is-active slovo-traefik slovo-postgres slovo-p
 
 Ожидаемый вывод — `active` для каждого из пяти сервисов.
 
-### 0.4 Предсинк MinIO (самые тяжёлые данные — аудио)
+### 0.4 Предсинк MinIO (rsync напрямую new ← old, минуя ноутбук)
 
-Аудио — самый большой объём данных, поэтому копируем их заранее. Используем
-`tar`-pipe (rsync не используется). **Без `--numeric-ids`**: uid/gid юзера
-`slovo` на серверах разные, маппинг идёт по имени.
+> [!IMPORTANT]
+> Трафик идёт напрямую между VPS; ноутбук только запускает команду.
+> Промежуточные архивы не создаются (tar-пайп из ранних версий удалён — на
+> старом VPS нет места).
+
+**Шаг 1 — проверить rsync на обоих серверах** (на чистом Debian 13 может
+отсутствовать):
 
 ```bash
-ssh root@92.63.103.147 'cd /slovo/minio && tar cf - data' | ssh root@95.215.56.235 'cd /slovo/minio && tar xf -'
-ssh root@95.215.56.235 'chown -R slovo:slovo /slovo/minio/data'
+ssh root@92.63.103.147 'command -v rsync || apt-get install -y rsync'
+ssh root@95.215.56.235  'command -v rsync || apt-get install -y rsync'
 ```
 
-В окне миграции догоним дельту (Фаза 1, шаг 3 — те же tar-pipe команды).
+**Шаг 2 — временный ключ new→old** (действует до конца миграции, удалить
+после):
+
+```bash
+ssh root@95.215.56.235 'ssh-keygen -t ed25519 -f /root/.ssh/migr_tmp -N "" && cat /root/.ssh/migr_tmp.pub'
+ssh root@92.63.103.147 'echo "<PUB_ИЗ_ВЫВОДА>" >> /root/.ssh/authorized_keys'
+```
+
+**Шаг 3 — предсинк** (rsync докачает только недостающее: сверка размер+mtime;
+частично скопированное ранее не мешает):
+
+```bash
+ssh root@95.215.56.235 'rsync -az --info=progress2 -e "ssh -i /root/.ssh/migr_tmp -o StrictHostKeyChecking=accept-new" root@92.63.103.147:/slovo/minio/data/ /slovo/minio/data/'
+```
+
+> [!TIP]
+> Для устойчивости к обрывам ssh-сессии запускать в tmux на новом VPS; прогресс
+> виден благодаря `--info=progress2`; проверить объём:
+> `ssh root@95.215.56.235 'du -sh /slovo/minio/data'`.
+
+> [!NOTE]
+> rsync без `--numeric-ids` маппит владельца по имени (uid/gid юзера `slovo` на
+> серверах разные) — отдельный `chown` не требуется; при сомнениях
+> `ls -la /slovo/minio/data | head`.
+
+> [!NOTE]
+> Вместе с данными копируется и служебный каталог `.minio.sys` (метаданные
+> бакетов, политики) — это и нужно при файловой миграции MinIO; rsync копирует
+> скрытые файлы по умолчанию.
+
+В окне миграции догоним дельту (Фаза 1, шаг 3 — тот же rsync с `--delete`).
 
 ### 0.5 Прочее
 
@@ -192,7 +226,7 @@ ssh root@95.215.56.235 'chown -R slovo:slovo /slovo/minio/data'
 - [ ] 0.1 Ключ установлен на новый VPS, вход работает
 - [ ] 0.2 `inventory/hosts` → `95.215.56.235`, коммит в inventory-репо
 - [ ] 0.3 Плейбук отработал на новом VPS, 5 сервисов — `active`
-- [ ] 0.4 Предсинк MinIO выполнен, `chown -R slovo:slovo` выполнен
+- [ ] 0.4 Предсинк MinIO выполнен (rsync new ← old), временный ключ установлен
 - [ ] 0.5 TTL всех A-записей = 300
 - [ ] 0.5 Известно, где лежат секреты Forgejo (орга/репо)
 
@@ -223,13 +257,32 @@ ssh root@92.63.103.147 'systemctl stop slovo-postgres'
 
 ### 3. Финальная дельта MinIO
 
-Догоняем данные, записанные после предсинка. Те же tar-pipe команды, что в
-Фазе 0, шаг 0.4:
+Догоняем данные, записанные после предсинка (Фаза 0, шаг 0.4).
+
+Перед дельтой остановить MinIO на **новом** сервере (источник на старом уже
+заморожен шагом 1):
 
 ```bash
-ssh root@92.63.103.147 'cd /slovo/minio && tar cf - data' | ssh root@95.215.56.235 'cd /slovo/minio && tar xf -'
-ssh root@95.215.56.235 'chown -R slovo:slovo /slovo/minio/data'
+ssh root@95.215.56.235 'systemctl stop slovo-minio'
 ```
+
+Финальная дельта (догонит только изменения с предсинка; `--delete` уберёт
+удалённое на старом):
+
+```bash
+ssh root@95.215.56.235 'rsync -az --delete --info=progress2 -e "ssh -i /root/.ssh/migr_tmp" root@92.63.103.147:/slovo/minio/data/ /slovo/minio/data/'
+```
+
+Запустить MinIO обратно:
+
+```bash
+ssh root@95.215.56.235 'systemctl start slovo-minio'
+```
+
+> [!IMPORTANT]
+> Синхронизация выполняется при остановленном MinIO на новом сервере — иначе
+> работающий MinIO может держать/пересоздавать файлы в data-каталоге и
+> `.minio.sys`.
 
 ### 4. Восстановление БД на новом VPS
 
@@ -317,7 +370,7 @@ curl --resolve docs.slovo-propovedi.ru:443:95.215.56.235 -I https://docs.slovo-p
 
 - [ ] 1. Приложения на старом VPS остановлены (postgres — работает)
 - [ ] 2. Дамп БД на ноутбуке (`~/slovo-db.sql.gz`), postgres остановлен
-- [ ] 3. Дельта MinIO догнана, `chown` выполнен
+- [ ] 3. Дельта MinIO догнана (`rsync --delete`), MinIO на новом VPS запущен
 - [ ] 4. БД восстановлена без ошибок (`ON_ERROR_STOP=1`)
 - [ ] 5. `acme.json` перенесён, `slovo-traefik` перезапущен
 - [ ] 6. В Forgejo изменён только `VPS_HOST`
@@ -348,11 +401,25 @@ ssh root@92.63.103.147 'systemctl start slovo-traefik slovo-pgbouncer slovo-post
 
 ---
 
+## После успешной миграции
+
+Когда приёмка (Фаза 1, шаг 10) пройдена и откат больше не планируется —
+удалить временный ключ new→old, созданный в Фазе 0, шаг 0.4:
+
+```bash
+ssh root@95.215.56.235 'rm -f /root/.ssh/migr_tmp /root/.ssh/migr_tmp.pub'
+# и убрать строку с этим ключом из /root/.ssh/authorized_keys на старом VPS
+```
+
+Старый VPS **не выключать несколько дней** — он остаётся точкой отката.
+
+---
+
 ## Риски и примечания
 
-- **uid/gid юзера `slovo` различаются между серверами** — tar без
-  `--numeric-ids`, маппинг по имени. При сомнениях после любого переноса
-  выполнять `chown -R slovo:slovo /slovo/minio/data`.
+- **uid/gid юзера `slovo` различаются между серверами** — rsync без
+  `--numeric-ids` маппит владельца по имени, отдельный `chown` не требуется.
+  При сомнениях после любого переноса: `ls -la /slovo/minio/data | head`.
 - **Debian 13 vs galaxy-роли** — pinned роли поддерживают Debian ≤ 12; при
   падении см. Фаза 0.3 (поднять версию / Docker руками / Debian 12).
 - **Порядок критичен:** плейбук → редеплой приложений. Бэкенд зависит от
