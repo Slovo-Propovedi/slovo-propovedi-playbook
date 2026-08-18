@@ -63,6 +63,13 @@ postgres_base_path: "{{ slovo_base_data_path }}/postgres"
 postgres_uid: "{{ slovo_user_uid }}"
 postgres_gid: "{{ slovo_user_gid }}"
 
+# 2026-08-18: override the galaxy role's default C locale (lc-collate/lc-ctype=C)
+# which caused case-sensitive FTS search on Russian text.  The live DB was recreated
+# with ru_RU.UTF-8 on the VPS; these overrides keep the env file in sync so a
+# playbook rerun does not revert the fix.
+postgres_default_lc_collate: ru_RU.UTF-8
+postgres_default_lc_type: ru_RU.UTF-8
+
 # The postgres role creates a network with this name
 postgres_container_network: slovo-postgres
 

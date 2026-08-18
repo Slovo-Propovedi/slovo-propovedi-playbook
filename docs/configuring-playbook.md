@@ -125,7 +125,10 @@ slovo_admin_user_password: CHANGE_ME_admin_password
 
 - **Reverse proxy** — `slovo_playbook_reverse_proxy_type: playbook-managed-traefik` enables the playbook-managed Traefik instance. See [Configuring Traefik](configuring-traefik.md) for details.
 
-- **PostgreSQL** — the `slovo_backend_postgres_*` variables define the database user, password, and database name. They are shared by the postgres and pgbouncer roles — **do not remove them**. The postgres role creates the database and user on startup (see `postgres_managed_databases_auto` in `group_vars`).
+- **PostgreSQL** — the `slovo_backend_postgres_*` variables define the database user, password, and database name. They are shared by the postgres and pgbouncer roles — **do not remove them**. The postgres role creates the database and user on startup (see `postgres_managed_databases_auto` in `group_vars`). The `group_vars` also override the galaxy role's default `C` locale to `ru_RU.UTF-8` (`postgres_default_lc_collate`/`postgres_default_lc_type`) — this is required for correct case-insensitive full-text search on Russian text (see incident 2026-08-18 below).
+
+> [!NOTE]
+> **Инцидент 2026-08-18 — регистрозависимый FTS-поиск.** При первоначальном развёртывании postgres-контейнер инициализировался с `lc-collate=C` (дефолт galaxy-роли), из-за чего `lower()` / `to_tsvector('russian')` не нормализовали кириллицу → поиск по проповедям был регистрозависимым. Исправлено пересозданием БД `slovo` с `LC_COLLATE/LC_CTYPE=ru_RU.UTF-8` + `pg_restore`. Переменные `postgres_default_lc_collate` и `postgres_default_lc_type` теперь явно заданы в `group_vars`, чтобы повторный запуск плейбука не откатывал локаль.
 
 - **MinIO** — `slovo_minio_root_user`/`slovo_minio_root_password` are the MinIO server's root credentials. Set `slovo_minio_hostname`/`slovo_minio_console_hostname` to the public hostnames of the S3 API and console.
 
