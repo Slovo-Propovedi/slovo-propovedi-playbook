@@ -168,6 +168,8 @@ This installs all services (Docker, PostgreSQL, PgBouncer, MinIO, Adminer, Traef
 
 The standalone docs site is deployed separately via a Forgejo Actions workflow in the [slovo-propovedi-docs](https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-docs) repository.
 
+The site apex (`slovo-propovedi.ru` + `www.slovo-propovedi.ru`) is likewise deployed outside this playbook — via the [slovo-propovedi-landing](https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-landing) repository using its own Forgejo Actions workflow and `vps-deploy.sh`. It runs as a static nginx container behind the shared Traefik instance (same pattern as api / admin-app / docs). No Ansible role is needed for it.
+
 > [!NOTE]
 > Without `just`, run the equivalent `ansible-playbook` command:
 >
