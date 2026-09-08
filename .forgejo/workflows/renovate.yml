@@ -36,7 +36,7 @@ jobs:
       - name: Run Renovate
         run: npx --yes renovate
         env:
-          RENOVATE_PLATFORM: gitea
+          RENOVATE_PLATFORM: forgejo
           RENOVATE_ENDPOINT: ${{ github.server_url }}/api/v1
           RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
           RENOVATE_AUTODISCOVER: "false"
