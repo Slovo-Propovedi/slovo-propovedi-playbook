@@ -9,8 +9,10 @@ name: Renovate
 # against data.forgejo.org (which mirrors actions/* only, not renovatebot/*).
 #
 # One-time setup: add a Forgejo Personal Access Token as the repo/org secret
-# RENOVATE_TOKEN (scopes: read/write on repositories + issues, so Renovate can
-# push branches, open PRs and maintain the Dependency Dashboard issue).
+# RENOVATE_TOKEN with scopes:
+#   write:repository, write:issue, read:user, read:organization
+# (push branches, open PRs, maintain the Dependency Dashboard; the forgejo
+# platform also queries /orgs/{org} on startup — hence read:organization).
 # Optional: RENOVATE_GITHUB_COM_TOKEN (a github.com read-only PAT) to avoid rate
 # limits when Renovate fetches release notes for the GitHub-hosted roles. It is
 # passed to Renovate as GITHUB_COM_TOKEN below — Forgejo forbids secret names
