@@ -166,9 +166,13 @@ just setup-all
 
 This installs all services (Docker, PostgreSQL, PgBouncer, MinIO, Adminer, Traefik) and starts them.
 
-The standalone docs site is deployed separately via a Forgejo Actions workflow in the [slovo-propovedi-docs](https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-docs) repository.
-
-The site apex (`slovo-propovedi.ru` + `www.slovo-propovedi.ru`) is likewise deployed outside this playbook — via the [slovo-propovedi-landing](https://git.lightnode.ru/Slovo_Propovedi/slovo-propovedi-landing) repository using its own Forgejo Actions workflow and `vps-deploy.sh`. It runs as a static nginx container behind the shared Traefik instance (same pattern as api / admin-app / docs). No Ansible role is needed for it.
+The **applications** — backend API, admin SPA, docs site and the site apex
+(`slovo-propovedi.ru` + `www`) — are **not** installed by this playbook. Each
+deploys itself from its own repository via `scripts/vps-deploy.sh` on a `v*` tag,
+running as a container behind the shared Traefik instance. Those scripts verify
+the infrastructure this playbook provides and fail fast if it is missing, so run
+`just setup-all` against the host first. See
+[Deploying the applications](deploying-apps.md).
 
 > [!NOTE]
 > Without `just`, run the equivalent `ansible-playbook` command:

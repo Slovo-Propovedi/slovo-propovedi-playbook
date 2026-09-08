@@ -1,0 +1,53 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
+  "timezone": "Europe/Moscow",
+  "schedule": ["before 9am on monday"],
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "description": "Infrastructure versions are reviewed by a human — never automerge.",
+      "matchManagers": ["custom.regex"],
+      "automerge": false
+    },
+    {
+      "description": "Group the devture helper roles into one PR.",
+      "matchFileNames": ["requirements.yml"],
+      "matchPackageNames": ["devture/**"],
+      "groupName": "devture ansible roles"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Ansible Galaxy roles pinned by git tag in requirements.yml (SHA-pinned roles are skipped).",
+      "managerFilePatterns": ["/^requirements\\.yml$/"],
+      "matchStrings": [
+        "src:\\s*git\\+https://github\\.com/(?<depName>[^\\s]+?)(?:\\.git)?\\s*\\n\\s*version:\\s*(?<currentValue>v?[0-9][^\\s]*)"
+      ],
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "loose"
+    },
+    {
+      "customType": "regex",
+      "description": "MinIO server image version (slovo-minio role).",
+      "managerFilePatterns": ["/^roles/custom/slovo-minio/defaults/main\\.yml$/"],
+      "matchStrings": ["slovo_minio_version:\\s*\"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "minio/minio",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "regex:^RELEASE\\.(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})T(?<build>\\d{2}-\\d{2}-\\d{2})Z$"
+    },
+    {
+      "customType": "regex",
+      "description": "Adminer image version (slovo-adminer role).",
+      "managerFilePatterns": ["/^roles/custom/slovo-adminer/defaults/main\\.yml$/"],
+      "matchStrings": ["slovo_adminer_version:\\s*\"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "adminer",
+      "datasourceTemplate": "docker"
+    }
+  ]
+}

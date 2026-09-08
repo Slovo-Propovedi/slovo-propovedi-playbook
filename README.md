@@ -4,6 +4,8 @@ Ansible playbook for deploying the slovo-propovedi infrastructure services (Post
 
 This playbook follows the [matrix-docker-ansible-deploy](https://github.com/spantaleev/matrix-docker-ansible-deploy) pattern: every service runs in a Docker container managed by systemd, with Traefik as the reverse proxy in front of everything.
 
+It provisions **shared infrastructure only**. The applications (backend API, admin SPA, docs site, landing site) deploy themselves from their own repositories via `scripts/vps-deploy.sh` on a `v*` tag, and expect this playbook to have run against the host first. See [Deploying the applications](docs/deploying-apps.md).
+
 ## Features
 
 - **PostgreSQL 18.4** — primary database
@@ -78,6 +80,7 @@ This playbook follows the [matrix-docker-ansible-deploy](https://github.com/span
 
 - [Configuring the playbook](docs/configuring-playbook.md)
 - [Configuring Traefik](docs/configuring-traefik.md)
+- [Deploying the applications](docs/deploying-apps.md) — how the app repos deploy on top of this playbook
 - [VPS migration runbook — August 2026](docs/migration-2026-08-vps.md)
 
 ## License

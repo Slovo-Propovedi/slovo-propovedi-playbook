@@ -19,7 +19,7 @@ slovo_pgbouncer_container_image: "edoburu/pgbouncer:latest"
 # The port PgBouncer listens on (inside the container, on the shared Docker network).
 #
 # NOTE: this is deliberately 5432, NOT 6432. The backend source hardcodes
-# POSTGRES_PORT=5432 (see docs/deploying-backend.md) and cannot be told to use
+# POSTGRES_PORT=5432 (see docs/deploying-apps.md) and cannot be told to use
 # another port, so PgBouncer must listen on 5432 for the backend to reach it.
 # It is a separate container from postgres, so both can use port 5432 on the
 # same Docker network without conflict — `slovo-postgres:5432` and
