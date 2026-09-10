@@ -21,6 +21,9 @@
 - src: git+https://github.com/mother-of-all-self-hosting/ansible-role-postgres.git
   version: v18.4-2
   name: postgres
+- src: git+https://github.com/mother-of-all-self-hosting/ansible-role-postgres-backup.git
+  version: v18-4
+  name: postgres_backup
 - src: git+https://github.com/mother-of-all-self-hosting/ansible-role-traefik.git
   version: v3.7.9-0
   name: traefik

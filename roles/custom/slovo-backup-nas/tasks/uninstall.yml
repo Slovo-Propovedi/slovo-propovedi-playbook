@@ -1,0 +1,72 @@
+---
+
+- name: Stop slovo-backup-nas.timer
+  ansible.builtin.systemd:
+    name: slovo-backup-nas.timer
+    state: stopped
+    enabled: false
+  register: slovo_backup_nas_timer_stop_result
+  failed_when: false
+
+- name: Stop slovo-backup-nas.service
+  ansible.builtin.systemd:
+    name: slovo-backup-nas.service
+    state: stopped
+  register: slovo_backup_nas_service_stop_result
+  failed_when: false
+
+- name: Remove slovo-backup-nas.service
+  ansible.builtin.file:
+    path: /etc/systemd/system/slovo-backup-nas.service
+    state: absent
+
+- name: Remove slovo-backup-nas.timer
+  ansible.builtin.file:
+    path: /etc/systemd/system/slovo-backup-nas.timer
+    state: absent
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Uninstall backup SSH keys from VPS (stale credential cleanup)
+  when: slovo_backup_nas_enabled | bool
+  block:
+    - name: Slurp PostgreSQL backup public key
+      ansible.builtin.slurp:
+        src: "{{ slovo_backup_nas_base_path }}/keys/backup-postgres.pub"
+      register: slovo_backup_nas_uninstall_postgres_pubkey
+      failed_when: false
+
+    - name: Slurp MinIO backup public key
+      ansible.builtin.slurp:
+        src: "{{ slovo_backup_nas_base_path }}/keys/backup-minio.pub"
+      register: slovo_backup_nas_uninstall_minio_pubkey
+      failed_when: false
+
+    - name: Remove PostgreSQL backup SSH key from VPS
+      ansible.builtin.authorized_key:
+        user: root
+        key: "{{ slovo_backup_nas_uninstall_postgres_pubkey.content | b64decode }}"
+        key_options: >-
+          command="{{ slovo_backup_nas_rrsync_path }} -ro {{ slovo_backup_nas_vps_postgres_backup_src }}",no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding
+        state: absent
+      delegate_to: "{{ slovo_backup_nas_vps_host }}"
+      become: true
+      when: slovo_backup_nas_uninstall_postgres_pubkey.content is defined
+
+    - name: Remove MinIO backup SSH key from VPS
+      ansible.builtin.authorized_key:
+        user: root
+        key: "{{ slovo_backup_nas_uninstall_minio_pubkey.content | b64decode }}"
+        key_options: >-
+          command="{{ slovo_backup_nas_rrsync_path }} -ro {{ slovo_backup_nas_vps_minio_data_src }}",no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding
+        state: absent
+      delegate_to: "{{ slovo_backup_nas_vps_host }}"
+      become: true
+      when: slovo_backup_nas_uninstall_minio_pubkey.content is defined
+
+- name: Remove slovo-backup base directory
+  ansible.builtin.file:
+    path: "{{ slovo_backup_nas_base_path }}"
+    state: absent

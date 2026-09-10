@@ -50,6 +50,8 @@
 
     - role: galaxy/postgres
 
+    - role: galaxy/postgres_backup
+
     # PgBouncer runs right after postgres (its postgres network must exist first).
     - role: custom/slovo-pgbouncer
       tags:
@@ -84,3 +86,16 @@
         - install-all
 
     - role: galaxy/playbook_runtime_messages
+
+- name: "Set up slovo backup on the NAS"
+  hosts: slovo_backup_nas
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: custom/slovo-backup-nas
+      tags:
+        - setup-all
+        - install-all
+        - setup-slovo-backup-nas
+        - install-slovo-backup-nas

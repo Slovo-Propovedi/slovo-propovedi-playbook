@@ -1,0 +1,36 @@
+---
+
+# slovo-backup-nas: pulls PostgreSQL dumps and MinIO data from the VPS to the
+# home NAS over SSH (rsync).  A systemd timer triggers the pull daily.
+#
+# This role runs on a NAS host (separate from the VPS).  It generates
+# read-only SSH keypairs, installs them on the VPS, and sets up a
+# systemd timer that pulls the data directories via rsync.
+
+slovo_backup_nas_enabled: false
+
+# Base path on the NAS for backup infrastructure (keys, known_hosts, bin/).
+slovo_backup_nas_base_path: /opt/slovo-backup
+
+# VPS connection details.
+slovo_backup_nas_vps_host: slovo.example.com
+slovo_backup_nas_vps_ssh_port: 22
+slovo_backup_nas_vps_ssh_user: root
+
+# Source directories on the VPS.
+slovo_backup_nas_vps_postgres_backup_src: /slovo/postgres-backup/data
+slovo_backup_nas_vps_minio_data_src: /slovo/minio/data
+
+# Destination directories on the NAS (RAID1).
+slovo_backup_nas_postgres_backup_dest: /mnt/data/backups/slovo-postgres
+slovo_backup_nas_minio_data_dest: /mnt/data/backups/slovo-minio
+
+# Timer schedule (daily at 06:00 UTC).  The explicit TZ=UTC suffix is
+# required — without it systemd uses the NAS local timezone (likely MSK),
+# which would fire the pull at 03:00 UTC, BEFORE the VPS dump (04:30 UTC).
+slovo_backup_nas_timer_on_calendar: "*-*-* 06:00:00 UTC"
+slovo_backup_nas_timer_persistent: true
+slovo_backup_nas_timer_randomized_delay_sec: "15min"
+
+# Path to rrsync on the VPS (Debian: /usr/bin/rrsync).
+slovo_backup_nas_rrsync_path: /usr/bin/rrsync

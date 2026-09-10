@@ -1,0 +1,55 @@
+---
+
+- name: Fail if VPS host is not present in inventory
+  ansible.builtin.fail:
+    msg: >-
+      The VPS host `{{ slovo_backup_nas_vps_host }}` must be present in the
+      Ansible inventory with `ansible_host` set (it is used for delegate_to
+      and SSH connections).
+  when: slovo_backup_nas_vps_host not in hostvars
+
+- name: Fail if VPS SSH destination cannot be resolved
+  ansible.builtin.fail:
+    msg: >-
+      The VPS host `{{ slovo_backup_nas_vps_host }}` must have `ansible_host`
+      defined in the inventory for SSH connections.
+  when: hostvars[slovo_backup_nas_vps_host].ansible_host is not defined
+
+- name: Check that PostgreSQL backup destination parent directory exists
+  ansible.builtin.stat:
+    path: "{{ (slovo_backup_nas_postgres_backup_dest | dirname) }}"
+  register: slovo_backup_nas_postgres_dest_parent
+
+- name: Fail if PostgreSQL backup destination parent does not exist
+  ansible.builtin.fail:
+    msg: >-
+      The parent directory for PostgreSQL backups
+      ({{ slovo_backup_nas_postgres_backup_dest | dirname }}) does not exist
+      on the NAS.  Mount the RAID array or create the directory first.
+  when: not slovo_backup_nas_postgres_dest_parent.stat.exists | bool
+
+- name: Check that MinIO data destination parent directory exists
+  ansible.builtin.stat:
+    path: "{{ (slovo_backup_nas_minio_data_dest | dirname) }}"
+  register: slovo_backup_nas_minio_dest_parent
+
+- name: Fail if MinIO data destination parent does not exist
+  ansible.builtin.fail:
+    msg: >-
+      The parent directory for MinIO data
+      ({{ slovo_backup_nas_minio_data_dest | dirname }}) does not exist
+      on the NAS.  Mount the RAID array or create the directory first.
+  when: not slovo_backup_nas_minio_dest_parent.stat.exists | bool
+
+- name: Fail if VPS SSH port mismatches between inventory and role variable
+  ansible.builtin.fail:
+    msg: >-
+      VPS SSH port mismatch: the pull script uses slovo_backup_nas_vps_ssh_port
+      ({{ slovo_backup_nas_vps_ssh_port }}), but the inventory has
+      ansible_port={{ hostvars[slovo_backup_nas_vps_host].ansible_port }} for
+      {{ slovo_backup_nas_vps_host }}.  Delegated tasks use the inventory port
+      while the pull script uses the role variable.  Set
+      slovo_backup_nas_vps_ssh_port in host_vars to match ansible_port.
+  when: >-
+    hostvars[slovo_backup_nas_vps_host].ansible_port is defined and
+    (hostvars[slovo_backup_nas_vps_host].ansible_port | string) != (slovo_backup_nas_vps_ssh_port | string)

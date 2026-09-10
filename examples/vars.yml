@@ -42,6 +42,13 @@ slovo_admin_user_email: admin@example.com
 slovo_admin_user_password: CHANGE_ME_initial_password_here
 
 # =============================================================================
+# Backup (NAS pull — optional, requires slovo_backup_nas group in inventory)
+# =============================================================================
+# slovo_backup_nas_enabled: true
+# slovo_backup_nas_postgres_backup_dest: /mnt/data/backups/slovo-postgres
+# slovo_backup_nas_minio_data_dest: /mnt/data/backups/slovo-minio
+
+# =============================================================================
 # Traefik (auto-configured, but you can override)
 # =============================================================================
 # Email used for Let's Encrypt certificate notifications.

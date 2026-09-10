@@ -1,0 +1,126 @@
+---
+
+# ── NAS local setup ──────────────────────────────────────────────────────────
+
+- name: Ensure slovo-backup base directory exists
+  ansible.builtin.file:
+    path: "{{ slovo_backup_nas_base_path }}"
+    state: directory
+    mode: "0700"
+
+- name: Ensure slovo-backup keys directory exists
+  ansible.builtin.file:
+    path: "{{ slovo_backup_nas_base_path }}/keys"
+    state: directory
+    mode: "0700"
+
+- name: Ensure slovo-backup bin directory exists
+  ansible.builtin.file:
+    path: "{{ slovo_backup_nas_base_path }}/bin"
+    state: directory
+    mode: "0755"
+
+- name: Generate ed25519 keypair for PostgreSQL backup
+  ansible.builtin.command:
+    cmd: >-
+      ssh-keygen -q -t ed25519 -N ""
+      -f {{ slovo_backup_nas_base_path }}/keys/backup-postgres
+  args:
+    creates: "{{ slovo_backup_nas_base_path }}/keys/backup-postgres"
+
+- name: Generate ed25519 keypair for MinIO backup
+  ansible.builtin.command:
+    cmd: >-
+      ssh-keygen -q -t ed25519 -N ""
+      -f {{ slovo_backup_nas_base_path }}/keys/backup-minio
+  args:
+    creates: "{{ slovo_backup_nas_base_path }}/keys/backup-minio"
+
+- name: Read PostgreSQL backup public key
+  ansible.builtin.slurp:
+    src: "{{ slovo_backup_nas_base_path }}/keys/backup-postgres.pub"
+  register: slovo_backup_nas_postgres_pubkey
+
+- name: Read MinIO backup public key
+  ansible.builtin.slurp:
+    src: "{{ slovo_backup_nas_base_path }}/keys/backup-minio.pub"
+  register: slovo_backup_nas_minio_pubkey
+
+# ── VPS setup (delegate_to) ──────────────────────────────────────────────────
+
+- name: Ensure rsync is installed on VPS
+  ansible.builtin.apt:
+    name: rsync
+    state: present
+  delegate_to: "{{ slovo_backup_nas_vps_host }}"
+  become: true
+
+- name: Verify rrsync exists on VPS
+  ansible.builtin.stat:
+    path: "{{ slovo_backup_nas_rrsync_path }}"
+  delegate_to: "{{ slovo_backup_nas_vps_host }}"
+  become: true
+  register: slovo_backup_nas_rrsync_stat
+
+- name: Fail if rrsync is missing on VPS
+  ansible.builtin.fail:
+    msg: >-
+      rrsync not found at {{ slovo_backup_nas_rrsync_path }} on the VPS.
+      Install the rsync package (it ships rrsync on Debian).
+      On Debian: apt-get install rsync
+  when: not slovo_backup_nas_rrsync_stat.stat.exists | bool
+
+- name: Install PostgreSQL backup SSH key on VPS (read-only, restricted)
+  ansible.builtin.authorized_key:
+    user: root
+    key: "{{ slovo_backup_nas_postgres_pubkey.content | b64decode }}"
+    key_options: >-
+      command="{{ slovo_backup_nas_rrsync_path }} -ro {{ slovo_backup_nas_vps_postgres_backup_src }}",no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding
+    state: present
+  delegate_to: "{{ slovo_backup_nas_vps_host }}"
+  become: true
+
+- name: Install MinIO backup SSH key on VPS (read-only, restricted)
+  ansible.builtin.authorized_key:
+    user: root
+    key: "{{ slovo_backup_nas_minio_pubkey.content | b64decode }}"
+    key_options: >-
+      command="{{ slovo_backup_nas_rrsync_path }} -ro {{ slovo_backup_nas_vps_minio_data_src }}",no-agent-forwarding,no-port-forwarding,no-pty,no-X11-forwarding
+    state: present
+  delegate_to: "{{ slovo_backup_nas_vps_host }}"
+  become: true
+
+# ── Pull script and systemd timer ────────────────────────────────────────────
+
+- name: Install slovo-backup-pull script
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/slovo-backup-pull.sh.j2"
+    dest: "{{ slovo_backup_nas_base_path }}/bin/slovo-backup-pull"
+    mode: "0755"
+  notify: Run slovo-backup-nas pull now
+
+- name: Install slovo-backup-nas.service
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/slovo-backup-nas.service.j2"
+    dest: /etc/systemd/system/slovo-backup-nas.service
+    mode: "0644"
+  register: slovo_backup_nas_service_changed
+  notify: Run slovo-backup-nas pull now
+
+- name: Install slovo-backup-nas.timer
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/slovo-backup-nas.timer.j2"
+    dest: /etc/systemd/system/slovo-backup-nas.timer
+    mode: "0644"
+  register: slovo_backup_nas_timer_changed
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: slovo_backup_nas_service_changed.changed or slovo_backup_nas_timer_changed.changed
+
+- name: Enable and start slovo-backup-nas.timer
+  ansible.builtin.systemd:
+    name: slovo-backup-nas.timer
+    enabled: true
+    state: started

@@ -1,0 +1,11 @@
+[Unit]
+Description=Slovo backup pull (VPS → NAS via rsync)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart={{ slovo_backup_nas_base_path }}/bin/slovo-backup-pull
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=slovo-backup-nas

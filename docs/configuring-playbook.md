@@ -9,6 +9,7 @@ Here's what gets installed on your server:
 | Service | Systemd unit | Container | Purpose |
 | --- | --- | --- | --- |
 | PostgreSQL 18.4 | `slovo-postgres.service` | `slovo-postgres` | Primary database |
+| PostgreSQL backup | `slovo-postgres-backup.service` | `slovo-postgres-backup` | Daily pg_dump with rotation |
 | PgBouncer | `slovo-pgbouncer.service` | `slovo-pgbouncer` | Connection pooler in front of PostgreSQL |
 | MinIO | `slovo-minio.service` | `slovo-minio` | S3-compatible object storage (API port 9000, console port 9001) |
 | Adminer (optional) | `slovo-adminer.service` | `slovo-adminer` | Web-based database administration (port 8080) |
@@ -17,6 +18,7 @@ Here's what gets installed on your server:
 Related documentation:
 
 - [Configuring Traefik](configuring-traefik.md) — details about the reverse proxy.
+- [Configuring backups](configuring-backups.md) — PostgreSQL dumps + NAS pull.
 
 ## Prerequisites
 

@@ -1,0 +1,6 @@
+---
+
+- name: Run slovo-backup-nas pull now
+  ansible.builtin.systemd:
+    name: slovo-backup-nas.service
+    state: started

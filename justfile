@@ -26,6 +26,8 @@ setup-service service *extra_args: (run-tags "setup-" + service + ",start" extra
 # --- Per-service shortcuts ---
 # Dedicated setup-/install- recipes for each slovo service.
 # Equivalent to: just setup-service <name>  /  just install-service <name>
+# All recipes include the 'start' tag because every service is registered via
+# devture_systemd_service_manager, which enables/starts units only under 'start'.
 
 # Set up slovo-swap and start it
 setup-slovo-swap *extra_args: (run-tags "setup-slovo-swap,start" extra_args)
@@ -62,6 +64,24 @@ setup-slovo-adminer *extra_args: (run-tags "setup-slovo-adminer,start" extra_arg
 
 # Install slovo-adminer and start it
 install-slovo-adminer *extra_args: (run-tags "install-slovo-adminer,start" extra_args)
+
+# Set up postgres-backup and start it
+setup-postgres-backup *extra_args: (run-tags "setup-postgres-backup,start" extra_args)
+
+# Install postgres-backup and start it
+install-postgres-backup *extra_args: (run-tags "install-postgres-backup,start" extra_args)
+
+# Set up slovo-backup-nas and start it
+setup-slovo-backup-nas *extra_args: (run-tags "setup-slovo-backup-nas,start" extra_args)
+
+# Install slovo-backup-nas and start it
+install-slovo-backup-nas *extra_args: (run-tags "install-slovo-backup-nas,start" extra_args)
+
+# Set up all backup roles (postgres-backup + slovo-backup-nas) and start them
+setup-backups *extra_args: (run-tags "setup-postgres-backup,setup-slovo-backup-nas,start" extra_args)
+
+# Install all backup roles and start them
+install-backups *extra_args: (run-tags "install-postgres-backup,install-slovo-backup-nas,start" extra_args)
 
 # Create the admin user (run after install-all or setup-all)
 ensure-admin-user *extra_args: (run-tags "ensure-slovo-users-created" extra_args)

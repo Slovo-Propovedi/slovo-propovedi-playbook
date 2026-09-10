@@ -1,2 +1,7 @@
 [slovo_servers]
 # your-server.example.com ansible_host=1.2.3.4 ansible_user=root
+
+# [slovo_backup_nas]
+# Uncomment and add your NAS host to enable automated backups (VPS → NAS pull).
+# The NAS host must have ssh-keygen, rsync, and systemd timers available.
+# nas.example.com ansible_host=192.0.2.10 ansible_user=root ansible_port=2222

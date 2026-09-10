@@ -80,6 +80,7 @@ It provisions **shared infrastructure only**. The applications (backend API, adm
 
 - [Configuring the playbook](docs/configuring-playbook.md)
 - [Configuring Traefik](docs/configuring-traefik.md)
+- [Configuring backups](docs/configuring-backups.md) — PostgreSQL dumps + NAS pull
 - [Deploying the applications](docs/deploying-apps.md) — how the app repos deploy on top of this playbook
 - [VPS migration runbook — August 2026](docs/migration-2026-08-vps.md)
 

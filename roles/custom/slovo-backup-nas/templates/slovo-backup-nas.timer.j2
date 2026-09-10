@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily timer for slovo-backup-nas
+
+[Timer]
+OnCalendar={{ slovo_backup_nas_timer_on_calendar }}
+Persistent={{ slovo_backup_nas_timer_persistent | lower }}
+RandomizedDelaySec={{ slovo_backup_nas_timer_randomized_delay_sec }}
+
+[Install]
+WantedBy=timers.target

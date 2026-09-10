@@ -1,0 +1,36 @@
+#!/bin/bash
+# slovo-backup-pull — pulls PostgreSQL dumps and MinIO data from the VPS
+# to the NAS via rsync over SSH.
+#
+# Installed by slovo-backup-nas role.  Do not edit by hand.
+set -euo pipefail
+
+LOCKFILE="/var/lock/slovo-backup-pull.lock"
+
+# Prevent overlapping runs.
+exec 9>"$LOCKFILE"
+flock -n 9 || { echo "Another slovo-backup-pull is already running — exiting." >&2; exit 1; }
+
+VPS_HOST="{{ slovo_backup_nas_vps_ssh_user }}@{{ hostvars[slovo_backup_nas_vps_host].ansible_host }}"
+VPS_SSH_PORT="{{ slovo_backup_nas_vps_ssh_port }}"
+KNOWN_HOSTS="{{ slovo_backup_nas_base_path }}/known_hosts"
+POSTGRES_KEY="{{ slovo_backup_nas_base_path }}/keys/backup-postgres"
+MINIO_KEY="{{ slovo_backup_nas_base_path }}/keys/backup-minio"
+
+# Ensure destination directories exist.
+install -d -m 0700 "{{ slovo_backup_nas_postgres_backup_dest }}"
+install -d -m 0700 "{{ slovo_backup_nas_minio_data_dest }}"
+
+echo "=== slovo-backup-pull: PostgreSQL backups ==="
+rsync -az --delete --numeric-ids \
+    -e "ssh -i ${POSTGRES_KEY} -p ${VPS_SSH_PORT} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${KNOWN_HOSTS}" \
+    "${VPS_HOST}:/" \
+    "{{ slovo_backup_nas_postgres_backup_dest }}/"
+
+echo "=== slovo-backup-pull: MinIO data ==="
+rsync -az --delete --numeric-ids \
+    -e "ssh -i ${MINIO_KEY} -p ${VPS_SSH_PORT} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${KNOWN_HOSTS}" \
+    "${VPS_HOST}:/" \
+    "{{ slovo_backup_nas_minio_data_dest }}/"
+
+echo "=== slovo-backup-pull: done ==="
