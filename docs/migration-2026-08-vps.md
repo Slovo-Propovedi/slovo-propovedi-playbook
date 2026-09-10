@@ -1,11 +1,11 @@
-# Миграция VPS: 92.63.103.147 → 95.215.56.235 (август 2026)
+# Миграция VPS: <old-vps-ip> → <new-vps-ip> (август 2026)
 
 <sup>Runbook миграции продакшена · stop-and-migrate · согласованный простой</sup>
 
 > [!IMPORTANT]
 > **Миграция выполнена 17 августа 2026 г.** Все фазы пройдены успешно, приёмка
 > полностью зелёная (вход в админку, список проповедей, воспроизведение аудио
-> через пресайнед URL MinIO, Adminer, Swagger). DNS переключён на 95.215.56.235.
+> через пресайнед URL MinIO, Adminer, Swagger). DNS переключён на <new-vps-ip>.
 > Документ сохранён как историческая справка и шаблон для будущих миграций.
 
 Runbook для оператора. Все команды выполняются вручную с ноутбука оператора;
@@ -13,14 +13,14 @@ root-доступ по SSH есть на обоих серверах. Коман
 
 ## Контекст
 
-Перенос продакшена со старого VPS **92.63.103.147** (Ubuntu) на новый
-**95.215.56.235** (Debian 13, чистый сервер). Стратегия — **stop-and-migrate**
+Перенос продакшена со старого VPS **<old-vps-ip>** (Ubuntu) на новый
+**<new-vps-ip>** (Debian 13, чистый сервер). Стратегия — **stop-and-migrate**
 с согласованным простоем: на время окна сервисы останавливаются, данные
 переносятся, DNS переключается в конце.
 
 | Что | Старый VPS | Новый VPS |
 | --- | --- | --- |
-| Адрес | `92.63.103.147` | `95.215.56.235` |
+| Адрес | `<old-vps-ip>` | `<new-vps-ip>` |
 | ОС | Ubuntu | Debian 13 (чистый сервер) |
 | Роль после миграции | резерв (для отката) | прод |
 
@@ -28,7 +28,7 @@ root-доступ по SSH есть на обоих серверах. Коман
 Traefik).
 
 **Что не переносится:** Forgejo и CI-раннер живут отдельно на
-`git.lightnode.ru` — там обновляются только секреты.
+`git.example.com` — там обновляются только секреты.
 
 **Архитектура:**
 
@@ -66,7 +66,7 @@ VPS.
 Публичный ключ:
 
 ```
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICPMHH/h31R0hh7jxlvGTMq/8Q2O8MStlpVZl0t8DjaW egoreast@egoreast-laptop
+<ssh-public-key>
 ```
 
 **1. Проверка соответствия локального приватного ключа** — вывод должен
@@ -79,7 +79,7 @@ ssh-keygen -y -f ~/.ssh/id_ed25519
 **2. Проверка, что это ключ Forgejo на старом VPS:**
 
 ```bash
-ssh root@92.63.103.147 'cat /root/.ssh/authorized_keys'
+ssh root@<old-vps-ip> 'cat /root/.ssh/authorized_keys'
 ```
 
 Публичный ключ из п. 1 должен присутствовать в выводе.
@@ -87,13 +87,13 @@ ssh root@92.63.103.147 'cat /root/.ssh/authorized_keys'
 **3. Установка ключа на новый VPS:**
 
 ```bash
-ssh root@95.215.56.235 'mkdir -p /root/.ssh && chmod 700 /root/.ssh && echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICPMHH/h31R0hh7jxlvGTMq/8Q2O8MStlpVZl0t8DjaW egoreast@egoreast-laptop" >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys'
+ssh root@<new-vps-ip> 'mkdir -p /root/.ssh && chmod 700 /root/.ssh && echo "<ssh-public-key>" >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys'
 ```
 
 **4. Проверка входа на новый VPS:**
 
 ```bash
-ssh -i ~/.ssh/id_ed25519 root@95.215.56.235 'uname -a'
+ssh -i ~/.ssh/id_ed25519 root@<new-vps-ip> 'uname -a'
 ```
 
 > [!IMPORTANT]
@@ -114,8 +114,8 @@ ssh -i ~/.ssh/id_ed25519 root@95.215.56.235 'uname -a'
 1. В `inventory/hosts` поменять адрес хоста:
 
    ```diff
-   -slovo-propovedi.ru ansible_host=92.63.103.147 ansible_user=root
-   +slovo-propovedi.ru ansible_host=95.215.56.235 ansible_user=root
+   -slovo-propovedi.ru ansible_host=<old-vps-ip> ansible_user=root
+   +slovo-propovedi.ru ansible_host=<new-vps-ip> ansible_user=root
    ```
 
 2. Закоммитить изменение в inventory-репозиторий:
@@ -123,7 +123,7 @@ ssh -i ~/.ssh/id_ed25519 root@95.215.56.235 'uname -a'
    ```bash
    cd ~/playbooks/slovo-propovedi-playbook/inventory
    git add hosts
-   git commit -m "chore: switch ansible_host to new VPS 95.215.56.235"
+   git commit -m "chore: switch ansible_host to new VPS <new-vps-ip>"
    git push
    ```
 
@@ -165,7 +165,7 @@ Vault-пароль спросят (используется `--ask-vault-pass`).
 **Проверка после репетиции** — все сервисы должны быть `active`:
 
 ```bash
-ssh root@95.215.56.235 'systemctl is-active slovo-traefik slovo-postgres slovo-pgbouncer slovo-minio slovo-adminer'
+ssh root@<new-vps-ip> 'systemctl is-active slovo-traefik slovo-postgres slovo-pgbouncer slovo-minio slovo-adminer'
 ```
 
 Ожидаемый вывод — `active` для каждого из пяти сервисов.
@@ -181,23 +181,23 @@ ssh root@95.215.56.235 'systemctl is-active slovo-traefik slovo-postgres slovo-p
 отсутствовать):
 
 ```bash
-ssh root@95.215.56.235 'command -v tmux || apt-get install -y tmux'
+ssh root@<new-vps-ip> 'command -v tmux || apt-get install -y tmux'
 ```
 
 **Шаг 1 — проверить rsync на обоих серверах** (на чистом Debian 13 может
 отсутствовать):
 
 ```bash
-ssh root@92.63.103.147 'command -v rsync || apt-get install -y rsync'
-ssh root@95.215.56.235  'command -v rsync || apt-get install -y rsync'
+ssh root@<old-vps-ip> 'command -v rsync || apt-get install -y rsync'
+ssh root@<new-vps-ip>  'command -v rsync || apt-get install -y rsync'
 ```
 
 **Шаг 2 — временный ключ new→old** (действует до конца миграции, удалить
 после):
 
 ```bash
-ssh root@95.215.56.235 'ssh-keygen -t ed25519 -f /root/.ssh/migr_tmp -N "" && cat /root/.ssh/migr_tmp.pub'
-ssh root@92.63.103.147 'echo "<PUB_ИЗ_ВЫВОДА>" >> /root/.ssh/authorized_keys'
+ssh root@<new-vps-ip> 'ssh-keygen -t ed25519 -f /root/.ssh/migr_tmp -N "" && cat /root/.ssh/migr_tmp.pub'
+ssh root@<old-vps-ip> 'echo "<PUB_ИЗ_ВЫВОДА>" >> /root/.ssh/authorized_keys'
 ```
 
 **Шаг 3 — предсинк в tmux** (rsync докачает только недостающее: сверка
@@ -206,19 +206,19 @@ ssh root@92.63.103.147 'echo "<PUB_ИЗ_ВЫВОДА>" >> /root/.ssh/authorized_
 на VPS:
 
 ```bash
-ssh root@95.215.56.235
+ssh root@<new-vps-ip>
 tmux new -s minio-sync
-rsync -az --info=progress2 -e "ssh -i /root/.ssh/migr_tmp -o StrictHostKeyChecking=accept-new" root@92.63.103.147:/slovo/minio/data/ /slovo/minio/data/
+rsync -az --info=progress2 -e "ssh -i /root/.ssh/migr_tmp -o StrictHostKeyChecking=accept-new" root@<old-vps-ip>:/slovo/minio/data/ /slovo/minio/data/
 ```
 
 - **Отсоединение от сессии:** `Ctrl+B`, затем `D` — после этого локальный
   терминал/VPN можно закрыть.
 - **Возвращение к сессии:**
-  `ssh -t root@95.215.56.235 'tmux attach -t minio-sync'`
+  `ssh -t root@<new-vps-ip> 'tmux attach -t minio-sync'`
 - **Быстрая проверка без захода внутрь:**
 
 ```bash
-ssh root@95.215.56.235 'pgrep -a rsync; tmux ls; du -sh /slovo/minio/data'
+ssh root@<new-vps-ip> 'pgrep -a rsync; tmux ls; du -sh /slovo/minio/data'
 ```
 
 > [!NOTE]
@@ -250,7 +250,7 @@ ssh root@95.215.56.235 'pgrep -a rsync; tmux ls; du -sh /slovo/minio/data'
 - [ ] 0.1 Приватный ключ совпадает с публичным (`ssh-keygen -y`)
 - [ ] 0.1 Ключ Forgejo подтверждён на старом VPS
 - [ ] 0.1 Ключ установлен на новый VPS, вход работает
-- [ ] 0.2 `inventory/hosts` → `95.215.56.235`, коммит в inventory-репо
+- [ ] 0.2 `inventory/hosts` → `<new-vps-ip>`, коммит в inventory-репо
 - [ ] 0.3 Плейбук отработал на новом VPS, 5 сервисов — `active`
 - [ ] 0.4 Предсинк MinIO выполнен (rsync new ← old), временный ключ установлен
 - [ ] 0.5 TTL всех A-записей = 300
@@ -268,14 +268,14 @@ ssh root@95.215.56.235 'pgrep -a rsync; tmux ls; du -sh /slovo/minio/data'
 Postgres **оставляем работать** — он нужен для дампа на следующем шаге.
 
 ```bash
-ssh root@92.63.103.147 'systemctl stop slovo-backend slovo-frontend slovo-docs slovo-adminer slovo-pgbouncer slovo-minio slovo-traefik'
+ssh root@<old-vps-ip> 'systemctl stop slovo-backend slovo-frontend slovo-docs slovo-adminer slovo-pgbouncer slovo-minio slovo-traefik'
 ```
 
 ### 2. Дамп БД
 
 ```bash
-ssh root@92.63.103.147 'docker exec slovo-postgres pg_dump -U slovo slovo' | gzip > ~/slovo-db.sql.gz
-ssh root@92.63.103.147 'systemctl stop slovo-postgres'
+ssh root@<old-vps-ip> 'docker exec slovo-postgres pg_dump -U slovo slovo' | gzip > ~/slovo-db.sql.gz
+ssh root@<old-vps-ip> 'systemctl stop slovo-postgres'
 ```
 
 Дамп сохраняется на ноутбуке оператора — после миграции хранить его как
@@ -289,14 +289,14 @@ ssh root@92.63.103.147 'systemctl stop slovo-postgres'
 заморожен шагом 1):
 
 ```bash
-ssh root@95.215.56.235 'systemctl stop slovo-minio'
+ssh root@<new-vps-ip> 'systemctl stop slovo-minio'
 ```
 
 Финальная дельта (догонит только изменения с предсинка; `--delete` уберёт
 удалённое на старом):
 
 ```bash
-ssh root@95.215.56.235 'rsync -az --delete --info=progress2 -e "ssh -i /root/.ssh/migr_tmp" root@92.63.103.147:/slovo/minio/data/ /slovo/minio/data/'
+ssh root@<new-vps-ip> 'rsync -az --delete --info=progress2 -e "ssh -i /root/.ssh/migr_tmp" root@<old-vps-ip>:/slovo/minio/data/ /slovo/minio/data/'
 ```
 
 > [!NOTE]
@@ -308,7 +308,7 @@ ssh root@95.215.56.235 'rsync -az --delete --info=progress2 -e "ssh -i /root/.ss
 Запустить MinIO обратно:
 
 ```bash
-ssh root@95.215.56.235 'systemctl start slovo-minio'
+ssh root@<new-vps-ip> 'systemctl start slovo-minio'
 ```
 
 > [!IMPORTANT]
@@ -321,8 +321,8 @@ ssh root@95.215.56.235 'systemctl start slovo-minio'
 Плейбук (Фаза 0.3) уже создал базу и юзера `slovo` с теми же vault-паролями.
 
 ```bash
-ssh root@95.215.56.235 'docker exec slovo-postgres psql -U slovo -d slovo -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
-gunzip -c ~/slovo-db.sql.gz | ssh root@95.215.56.235 'docker exec -i slovo-postgres psql -U slovo -d slovo -v ON_ERROR_STOP=1'
+ssh root@<new-vps-ip> 'docker exec slovo-postgres psql -U slovo -d slovo -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"'
+gunzip -c ~/slovo-db.sql.gz | ssh root@<new-vps-ip> 'docker exec -i slovo-postgres psql -U slovo -d slovo -v ON_ERROR_STOP=1'
 ```
 
 > [!NOTE]
@@ -335,7 +335,7 @@ gunzip -c ~/slovo-db.sql.gz | ssh root@95.215.56.235 'docker exec -i slovo-postg
 перевыпуска.
 
 ```bash
-ssh root@92.63.103.147 'cat /slovo/traefik/ssl/acme.json' | ssh root@95.215.56.235 'cat > /slovo/traefik/ssl/acme.json && chmod 600 /slovo/traefik/ssl/acme.json && systemctl restart slovo-traefik'
+ssh root@<old-vps-ip> 'cat /slovo/traefik/ssl/acme.json' | ssh root@<new-vps-ip> 'cat > /slovo/traefik/ssl/acme.json && chmod 600 /slovo/traefik/ssl/acme.json && systemctl restart slovo-traefik'
 ```
 
 ### 6. Секреты Forgejo
@@ -343,7 +343,7 @@ ssh root@92.63.103.147 'cat /slovo/traefik/ssl/acme.json' | ssh root@95.215.56.2
 Меняется **только `VPS_HOST`** (в репозиториях backend/admin/docs или на орге
 `Slovo_Propovedi` — см. Фаза 0.5):
 
-- `VPS_HOST` = `95.215.56.235`
+- `VPS_HOST` = `<new-vps-ip>`
 - `VPS_SSH_PRIVATE_KEY` — **не трогаем**
 - `VPS_SSH_USER` — **не трогаем**
 - Остальные секреты (JWT, пароли БД/MinIO) — **не меняются**, vault те же.
@@ -364,9 +364,9 @@ ssh root@92.63.103.147 'cat /slovo/traefik/ssl/acme.json' | ssh root@95.215.56.2
 Проверяем новый VPS напрямую, подменяя резолвинг через `--resolve`:
 
 ```bash
-curl --resolve api.slovo-propovedi.ru:443:95.215.56.235 https://api.slovo-propovedi.ru/health
-curl --resolve admin-app.slovo-propovedi.ru:443:95.215.56.235 -I https://admin-app.slovo-propovedi.ru
-curl --resolve docs.slovo-propovedi.ru:443:95.215.56.235 -I https://docs.slovo-propovedi.ru/openAPI.yaml
+curl --resolve api.slovo-propovedi.ru:443:<new-vps-ip> https://api.slovo-propovedi.ru/health
+curl --resolve admin-app.slovo-propovedi.ru:443:<new-vps-ip> -I https://admin-app.slovo-propovedi.ru
+curl --resolve docs.slovo-propovedi.ru:443:<new-vps-ip> -I https://docs.slovo-propovedi.ru/openAPI.yaml
 ```
 
 - `/health` должен ответить `200` с телом от нового бэкенда.
@@ -374,7 +374,7 @@ curl --resolve docs.slovo-propovedi.ru:443:95.215.56.235 -I https://docs.slovo-p
 
 ### 9. DNS
 
-Переключить A-записи на `95.215.56.235` у внешнего провайдера:
+Переключить A-записи на `<new-vps-ip>` у внешнего провайдера:
 
 | A-запись |
 | --- |
@@ -408,7 +408,7 @@ curl --resolve docs.slovo-propovedi.ru:443:95.215.56.235 -I https://docs.slovo-p
 - [ ] 6. В Forgejo изменён только `VPS_HOST`
 - [ ] 7. Приложения редеплоены (после плейбука!)
 - [ ] 8. Проверка `--resolve` прошла на всех трёх доменах
-- [ ] 9. 8 A-записей переключены на `95.215.56.235`
+- [ ] 9. 8 A-записей переключены на `<new-vps-ip>`
 - [ ] 10. Приёмка пройдена (включая воспроизведение аудио)
 
 ---
@@ -421,10 +421,10 @@ curl --resolve docs.slovo-propovedi.ru:443:95.215.56.235 -I https://docs.slovo-p
 Откат = запустить сервисы на старом VPS + вернуть DNS:
 
 ```bash
-ssh root@92.63.103.147 'systemctl start slovo-traefik slovo-pgbouncer slovo-postgres slovo-minio slovo-adminer slovo-backend slovo-frontend slovo-docs'
+ssh root@<old-vps-ip> 'systemctl start slovo-traefik slovo-pgbouncer slovo-postgres slovo-minio slovo-adminer slovo-backend slovo-frontend slovo-docs'
 ```
 
-Затем переключить 8 A-записей обратно на `92.63.103.147`.
+Затем переключить 8 A-записей обратно на `<old-vps-ip>`.
 
 > [!WARNING]
 > Данные, записанные на новый VPS после переключения DNS, при откате
@@ -439,7 +439,7 @@ ssh root@92.63.103.147 'systemctl start slovo-traefik slovo-pgbouncer slovo-post
 удалить временный ключ new→old, созданный в Фазе 0, шаг 0.4:
 
 ```bash
-ssh root@95.215.56.235 'rm -f /root/.ssh/migr_tmp /root/.ssh/migr_tmp.pub'
+ssh root@<new-vps-ip> 'rm -f /root/.ssh/migr_tmp /root/.ssh/migr_tmp.pub'
 # и убрать строку с этим ключом из /root/.ssh/authorized_keys на старом VPS
 ```
 
