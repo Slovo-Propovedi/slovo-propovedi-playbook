@@ -10,7 +10,7 @@ slovo_adminer_enabled: true
 # The identifier used for the container name and the systemd service name.
 slovo_adminer_identifier: "slovo-adminer"
 
-slovo_adminer_version: "4.8.1"
+slovo_adminer_version: "6.0.1"
 
 # The hostname at which slovo-adminer is served.
 slovo_adminer_hostname: ''
