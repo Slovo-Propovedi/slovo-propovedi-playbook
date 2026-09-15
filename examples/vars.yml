@@ -7,6 +7,14 @@
 # =============================================================================
 slovo_base_data_path: /slovo
 
+# Enables IPv6 on the Docker networks created by traefik/minio/pgbouncer/
+# adminer/postgres/postgres_backup. Off by default (matches Docker's own
+# default). Changing this does NOT retroactively add IPv6 to already-created
+# networks — see the role's own comment in
+# roles/galaxy/systemd_docker_base/defaults/main.yml for the (brief-outage)
+# rollout procedure if flipping this on an existing deployment.
+# devture_systemd_docker_base_ipv6_enabled: true
+
 # =============================================================================
 # Reverse proxy
 # =============================================================================
