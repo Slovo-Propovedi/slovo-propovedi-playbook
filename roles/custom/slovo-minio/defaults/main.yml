@@ -2,7 +2,9 @@
 
 # slovo-minio is the MinIO object-storage server for slovo-propovedi.
 # Project source code URL: https://github.com/minio/minio
-# The container image is pulled from the official registry.
+# The container image is pulled from quay.io, since MinIO removed its
+# community images from Docker Hub in October 2025 (minio/minio is no
+# longer anonymously pullable there; quay.io/minio/minio has the same tags).
 
 slovo_minio_enabled: true
 
@@ -29,7 +31,7 @@ slovo_minio_container_image_self_build: false
 
 # The container image name, with support for a custom registry prefix (e.g. `registry.example.com/`).
 slovo_minio_container_image_name_prefix: ""
-slovo_minio_container_image: "{{ slovo_minio_container_image_name_prefix }}minio/minio:{{ slovo_minio_version }}"
+slovo_minio_container_image: "{{ slovo_minio_container_image_name_prefix }}quay.io/minio/minio:{{ slovo_minio_version }}"
 
 # The base container network. It will be auto-created by this role if it doesn't exist already.
 slovo_minio_container_network: ''
