@@ -1,3 +1,4 @@
+---
 name: Renovate
 
 # Keeps the pinned infrastructure versions fresh: the Ansible Galaxy roles in

@@ -71,7 +71,7 @@
   when: not slovo_backup_nas_rrsync_stat.stat.exists | bool
 
 - name: Install PostgreSQL backup SSH key on VPS (read-only, restricted)
-  ansible.builtin.authorized_key:
+  ansible.posix.authorized_key:
     user: root
     key: "{{ slovo_backup_nas_postgres_pubkey.content | b64decode }}"
     key_options: >-
@@ -81,7 +81,7 @@
   become: true
 
 - name: Install MinIO backup SSH key on VPS (read-only, restricted)
-  ansible.builtin.authorized_key:
+  ansible.posix.authorized_key:
     user: root
     key: "{{ slovo_backup_nas_minio_pubkey.content | b64decode }}"
     key_options: >-

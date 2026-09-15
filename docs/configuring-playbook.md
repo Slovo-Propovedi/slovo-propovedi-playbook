@@ -143,9 +143,9 @@ slovo_admin_user_password: CHANGE_ME_admin_password
 
 ## Installing
 
-### 1. Install the Galaxy roles
+### 1. Install the Galaxy roles and collections
 
-The playbook depends on several upstream Ansible roles (Docker, Traefik, PostgreSQL, systemd helpers) declared in `requirements.yml`:
+The playbook depends on several upstream Ansible roles (Docker, Traefik, PostgreSQL, systemd helpers) and collections (`ansible.posix`, `community.docker`, `community.general`) declared in `requirements.yml`:
 
 ```sh
 just roles
@@ -157,7 +157,8 @@ just roles
 > Without `just`, install them directly:
 >
 > ```sh
-> rm -rf roles/galaxy && ansible-galaxy install -r requirements.yml -p roles/galaxy/ --force
+> rm -rf roles/galaxy && ansible-galaxy role install -r requirements.yml -p roles/galaxy/ --force
+> ansible-galaxy collection install -r requirements.yml --force
 > ```
 
 ### 2. Run the playbook

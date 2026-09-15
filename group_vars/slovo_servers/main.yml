@@ -89,16 +89,16 @@ postgres_managed_databases_auto: |
 # NOTE: the postgres role's pgtune variables are expressed in KILOBYTES (see
 # `postgres_postgres_process_extra_arguments_default` in the role), so the
 # values below are the kB equivalents of the target sizes (128MB = 131072kB, etc.).
-postgres_shared_buffers: 131072 # 128MB
+postgres_shared_buffers: 131072  # 128MB
 postgres_max_connections: 20
-postgres_work_mem: 2048 # 2MB per sort/hash operation (20 connections * 2MB = 40MB worst case)
-postgres_effective_cache_size: 524288 # 512MB
-postgres_maintenance_work_mem: 32768 # 32MB
-postgres_max_wal_size: 1048576 # 1GB
-postgres_min_wal_size: 262144 # 256MB
+postgres_work_mem: 2048  # 2MB per sort/hash operation (20 connections * 2MB = 40MB worst case)
+postgres_effective_cache_size: 524288  # 512MB
+postgres_maintenance_work_mem: 32768  # 32MB
+postgres_max_wal_size: 1048576  # 1GB
+postgres_min_wal_size: 262144  # 256MB
 # The role's default formula would set `wal_buffers` to the whole of `shared_buffers`
 # for small shared_buffers values — cap it at a sane 4MB instead.
-postgres_wal_buffers: 4096 # 4MB
+postgres_wal_buffers: 4096  # 4MB
 
 # Runtime memory limit for the postgres container (shared_buffers 128MB + per-connection work_mem fits).
 postgres_container_extra_arguments: ["--memory=384m"]

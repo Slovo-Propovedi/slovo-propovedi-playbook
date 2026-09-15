@@ -1,21 +1,26 @@
 ---
 
-- tags:
+- name: Detect platform
+  tags:
     - always
   block:
-    - ansible.builtin.include_tasks: "{{ role_path }}/tasks/detect_platform.yml"
+    - name: Detect platform
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/detect_platform.yml"
 
 # This needs to always run, because it populates `slovo_user_uid` and `slovo_user_gid`,
 # which are required by many other roles.
-- tags:
+- name: Set up the slovo system user
+  tags:
     - always
     - setup-system-user
     - common
   block:
-    - ansible.builtin.include_tasks: "{{ role_path }}/tasks/setup_slovo_user_linux.yml"
+    - name: Set up the slovo system user
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/setup_slovo_user_linux.yml"
       when: ansible_facts.os_family != 'Darwin'
 
-- tags:
+- name: Ensure Slovo base path exists
+  tags:
     - setup-all
     - install-all
     - common
@@ -28,7 +33,8 @@
         owner: "{{ slovo_user_name }}"
         group: "{{ slovo_group_name }}"
 
-- tags:
+- name: Limit systemd journald disk usage
+  tags:
     - setup-all
     - install-all
     - common

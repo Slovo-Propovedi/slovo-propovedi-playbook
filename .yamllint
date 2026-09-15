@@ -1,0 +1,28 @@
+---
+extends: default
+
+ignore: |
+  roles/galaxy/
+  .ansible/
+
+rules:
+  # Ansible variable/Jinja expressions (defaults, container labels, etc.)
+  # routinely exceed the default 80-char limit; 320 comfortably covers the
+  # current codebase while still catching genuinely runaway lines.
+  line-length:
+    max: 320
+  # Forgejo/GitHub Actions workflow files use the bare `on:` key, which YAML
+  # 1.1 parses as boolean true — don't flag mapping *keys* as truthy, only
+  # values (e.g. catch `enabled: yes` but not `on:`).
+  truthy:
+    check-keys: false
+  # ansible-lint requires these exact values to keep its own --fix mode
+  # available; matches its bundled reference yamllint config.
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: false
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true

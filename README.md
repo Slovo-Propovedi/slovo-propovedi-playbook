@@ -71,7 +71,8 @@ It provisions **shared infrastructure only**. The applications (backend API, adm
 > If you don't have `just` installed, you can run the same steps with Ansible directly:
 >
 > ```bash
-> ansible-galaxy install -r requirements.yml
+> ansible-galaxy role install -r requirements.yml -p roles/galaxy
+> ansible-galaxy collection install -r requirements.yml
 > ansible-playbook -i inventory/hosts setup.yml --tags=setup-all,start
 > ansible-playbook -i inventory/hosts setup.yml --tags=ensure-slovo-users-created
 > ```

@@ -5,7 +5,8 @@
     path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-adminer.service"
   register: slovo_adminer_service_stat
 
-- when: slovo_adminer_service_stat.stat.exists | bool
+- name: Stop and remove the existing slovo-adminer systemd service
+  when: slovo_adminer_service_stat.stat.exists | bool
   block:
     - name: Ensure slovo-adminer is stopped
       ansible.builtin.service:

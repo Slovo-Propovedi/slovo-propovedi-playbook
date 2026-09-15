@@ -5,7 +5,8 @@
     path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-pgbouncer.service"
   register: slovo_pgbouncer_service_stat
 
-- when: slovo_pgbouncer_service_stat.stat.exists | bool
+- name: Stop and remove the existing slovo-pgbouncer systemd service
+  when: slovo_pgbouncer_service_stat.stat.exists | bool
   block:
     - name: Ensure slovo-pgbouncer is stopped
       ansible.builtin.service:

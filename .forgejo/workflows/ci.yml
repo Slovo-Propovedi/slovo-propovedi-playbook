@@ -1,0 +1,50 @@
+---
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible tooling
+        run: pip install ansible ansible-lint yamllint
+
+      # Roles come from git+https://github.com/... and collections from Galaxy;
+      # re-downloading them on every run risks hitting rate limits there.
+      # Cache them, keyed on requirements.yml, and skip re-fetching (no
+      # --force) whenever the cache already satisfies what's declared.
+      - name: Cache Galaxy roles and collections
+        uses: actions/cache@v4
+        with:
+          path: |
+            roles/galaxy
+            ~/.ansible/collections
+          key: galaxy-${{ hashFiles('requirements.yml') }}
+
+      - name: Install Galaxy roles and collections
+        run: |
+          ansible-galaxy role install -r requirements.yml -p roles/galaxy
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: yamllint
+        run: yamllint .
+
+      - name: ansible-lint
+        run: ansible-lint setup.yml
+
+      - name: Dry-run (syntax check)
+        run: ansible-playbook -i examples/hosts setup.yml --syntax-check

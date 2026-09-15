@@ -2,13 +2,15 @@
 # Idempotent swap setup: creates the swap file, activates it, persists it in
 # /etc/fstab and tunes vm.swappiness. When disabled, it deactivates and removes it.
 
-- tags:
+- name: Set up swap
+  tags:
     - setup-all
     - setup-slovo-swap
     - install-all
     - install-slovo-swap
   block:
-    - when: slovo_swap_enabled | bool
+    - name: Set up the swap file
+      when: slovo_swap_enabled | bool
       block:
         - name: Check whether the swap file exists
           ansible.builtin.stat:
@@ -32,7 +34,7 @@
             cmd: "file {{ slovo_swap_file }}"
           register: slovo_swap_file_type
           changed_when: false
-          check_mode: no
+          check_mode: false
 
         - name: Format the swap file
           ansible.builtin.command:
@@ -44,7 +46,7 @@
             cmd: "swapon --show --noheadings | grep -q '{{ slovo_swap_file }}' && echo active || echo inactive"
           register: slovo_swap_active_state
           changed_when: false
-          check_mode: no
+          check_mode: false
 
         - name: Activate the swap file
           ansible.builtin.command:
@@ -59,24 +61,26 @@
             state: present
 
         - name: Tune the kernel's swap usage tendency
-          ansible.builtin.sysctl:
+          ansible.posix.sysctl:
             name: vm.swappiness
             value: "{{ slovo_swap_swappiness }}"
             state: present
             reload: true
 
-- tags:
+- name: Tear down swap if disabled
+  tags:
     - setup-all
     - setup-slovo-swap
   block:
-    - when: not slovo_swap_enabled | bool
+    - name: Deactivate and remove the swap file
+      when: not slovo_swap_enabled | bool
       block:
         - name: Check whether the swap file is active
           ansible.builtin.shell:
             cmd: "swapon --show --noheadings | grep -q '{{ slovo_swap_file }}' && echo active || echo inactive"
           register: slovo_swap_active_state
           changed_when: false
-          check_mode: no
+          check_mode: false
 
         - name: Deactivate the swap file
           ansible.builtin.command:

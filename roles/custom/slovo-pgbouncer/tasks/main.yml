@@ -1,20 +1,25 @@
 ---
 
-- tags:
+- name: Validate and install slovo-pgbouncer
+  tags:
     - setup-all
     - setup-slovo-pgbouncer
     - install-all
     - install-slovo-pgbouncer
   block:
-    - when: slovo_pgbouncer_enabled | bool
+    - name: Validate slovo-pgbouncer configuration
+      when: slovo_pgbouncer_enabled | bool
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
 
-    - when: slovo_pgbouncer_enabled | bool
+    - name: Install slovo-pgbouncer
+      when: slovo_pgbouncer_enabled | bool
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/install.yml"
 
-- tags:
+- name: Uninstall slovo-pgbouncer if disabled
+  tags:
     - setup-all
     - setup-slovo-pgbouncer
   block:
-    - when: not slovo_pgbouncer_enabled | bool
+    - name: Uninstall slovo-pgbouncer
+      when: not slovo_pgbouncer_enabled | bool
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/uninstall.yml"

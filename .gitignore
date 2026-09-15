@@ -2,6 +2,9 @@
 /roles/galaxy/*
 !/roles/galaxy/.gitkeep
 
+# Local ansible-galaxy cache dir some ansible-core versions create in the cwd
+/.ansible/
+
 # Ansible retry files
 *.retry
 

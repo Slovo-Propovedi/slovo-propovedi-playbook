@@ -45,7 +45,7 @@
       failed_when: false
 
     - name: Remove PostgreSQL backup SSH key from VPS
-      ansible.builtin.authorized_key:
+      ansible.posix.authorized_key:
         user: root
         key: "{{ slovo_backup_nas_uninstall_postgres_pubkey.content | b64decode }}"
         key_options: >-
@@ -56,7 +56,7 @@
       when: slovo_backup_nas_uninstall_postgres_pubkey.content is defined
 
     - name: Remove MinIO backup SSH key from VPS
-      ansible.builtin.authorized_key:
+      ansible.posix.authorized_key:
         user: root
         key: "{{ slovo_backup_nas_uninstall_minio_pubkey.content | b64decode }}"
         key_options: >-

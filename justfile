@@ -6,10 +6,12 @@
 default:
     @just --list
 
-# Install/refresh external Ansible galaxy roles
+# Install/refresh external Ansible galaxy roles and collections
 roles:
     @echo "Installing galaxy roles..."
-    ansible-galaxy install -r requirements.yml -p roles/galaxy --force
+    ansible-galaxy role install -r requirements.yml -p roles/galaxy --force
+    @echo "Installing galaxy collections..."
+    ansible-galaxy collection install -r requirements.yml --force
 
 # Install all services and start them (full deployment)
 install-all *extra_args: (run-tags "install-all,ensure-slovo-users-created,start" extra_args)
@@ -107,6 +109,15 @@ stop-group group: (run-tags "stop-group" "--extra-vars=group=" + group)
 
 # Check playbook syntax
 check: (run "--syntax-check")
+
+# Run the same lint checks as CI (yamllint + ansible-lint)
+lint:
+    yamllint .
+    ansible-lint setup.yml
+
+# Run the same dry-run config check as CI, against the example inventory
+dry-run:
+    ansible-playbook -i examples/hosts setup.yml --syntax-check
 
 # List all tasks that would run
 list-tasks: (run "--list-tasks")
