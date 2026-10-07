@@ -365,12 +365,11 @@ ssh root@<old-vps-ip> 'cat /slovo/traefik/ssl/acme.json' | ssh root@<new-vps-ip>
 
 ```bash
 curl --resolve api.slovo-propovedi.ru:443:<new-vps-ip> https://api.slovo-propovedi.ru/health
-curl --resolve admin-app.slovo-propovedi.ru:443:<new-vps-ip> -I https://admin-app.slovo-propovedi.ru
 curl --resolve docs.slovo-propovedi.ru:443:<new-vps-ip> -I https://docs.slovo-propovedi.ru/openAPI.yaml
 ```
 
 - `/health` должен ответить `200` с телом от нового бэкенда.
-- `-I` должен вернуть `HTTP/2 200` (или `301/302` на HTTPS) для админки и docs.
+- `-I` должен вернуть `HTTP/2 200` (или `301/302` на HTTPS) для docs.
 
 ### 9. DNS
 
@@ -381,18 +380,16 @@ curl --resolve docs.slovo-propovedi.ru:443:<new-vps-ip> -I https://docs.slovo-pr
 | `slovo-propovedi.ru` |
 | `www` |
 | `api` |
-| `admin-app` |
 | `docs` |
 | `minio-api` |
 | `minio-console` |
 | `adminer` |
 
-Всего **8 записей**. После изменения дождаться распространения (TTL = 300,
+Всего **7 записей**. После изменения дождаться распространения (TTL = 300,
 см. Фаза 0.5).
 
 ### 10. Приёмка
 
-- [ ] Логин в админку (`admin-app.slovo-propovedi.ru`)
 - [ ] Список проповедей отображается
 - [ ] **Воспроизведение аудио** — пресайнед URL MinIO, частая жертва миграций
 - [ ] Adminer (`adminer.slovo-propovedi.ru`) — вход в БД работает
@@ -407,8 +404,8 @@ curl --resolve docs.slovo-propovedi.ru:443:<new-vps-ip> -I https://docs.slovo-pr
 - [ ] 5. `acme.json` перенесён, `slovo-traefik` перезапущен
 - [ ] 6. В Forgejo изменён только `VPS_HOST`
 - [ ] 7. Приложения редеплоены (после плейбука!)
-- [ ] 8. Проверка `--resolve` прошла на всех трёх доменах
-- [ ] 9. 8 A-записей переключены на `<new-vps-ip>`
+- [ ] 8. Проверка `--resolve` прошла на обоих доменах
+- [ ] 9. 7 A-записей переключены на `<new-vps-ip>`
 - [ ] 10. Приёмка пройдена (включая воспроизведение аудио)
 
 ---
@@ -424,7 +421,7 @@ curl --resolve docs.slovo-propovedi.ru:443:<new-vps-ip> -I https://docs.slovo-pr
 ssh root@<old-vps-ip> 'systemctl start slovo-traefik slovo-pgbouncer slovo-postgres slovo-minio slovo-adminer slovo-backend slovo-frontend slovo-docs'
 ```
 
-Затем переключить 8 A-записей обратно на `<old-vps-ip>`.
+Затем переключить 7 A-записей обратно на `<old-vps-ip>`.
 
 > [!WARNING]
 > Данные, записанные на новый VPS после переключения DNS, при откате
