@@ -241,9 +241,11 @@ ssh root@<new-vps-ip> 'pgrep -a rsync; tmux ls; du -sh /slovo/minio/data'
 
 - **Снизить TTL всех A-записей до 300** у DNS-провайдера (чтобы переключение
   в Фазе 1 сработало быстро).
-- **Проверить, где лежат секреты Forgejo:** на уровне орги `Slovo_Propovedi`
-  или на трёх репозиториях по отдельности (backend/admin/docs) — от этого
-  зависит число правок на шаге 6 Фазы 1.
+- **Проверить, где лежат секреты Forgejo:** `VPS_HOST` / `VPS_SSH_USER` /
+  `VPS_SSH_PRIVATE_KEY` — per-repo секреты в трёх репозиториях
+  (backend/admin/docs); org-level vars (`POSTGRES_*`, `MINIO_*`, `WWW_HOSTNAME`,
+  `REPOSITORY_URL`, `MIRROR_GITHUB_LATEST_RELEASE_URL`, `MIRROR_GITHUB_SCREENSHOTS_RAW_URL`) — на уровне орги
+  `Slovo_Propovedi`.
 
 ### Чек-лист Фазы 0
 
@@ -254,7 +256,7 @@ ssh root@<new-vps-ip> 'pgrep -a rsync; tmux ls; du -sh /slovo/minio/data'
 - [ ] 0.3 Плейбук отработал на новом VPS, 5 сервисов — `active`
 - [ ] 0.4 Предсинк MinIO выполнен (rsync new ← old), временный ключ установлен
 - [ ] 0.5 TTL всех A-записей = 300
-- [ ] 0.5 Известно, где лежат секреты Forgejo (орга/репо)
+- [ ] 0.5 Известно, где лежат секреты Forgejo (VPS_* — per-repo, vars — орга)
 
 ---
 
@@ -340,13 +342,24 @@ ssh root@<old-vps-ip> 'cat /slovo/traefik/ssl/acme.json' | ssh root@<new-vps-ip>
 
 ### 6. Секреты Forgejo
 
-Меняется **только `VPS_HOST`** (в репозиториях backend/admin/docs или на орге
-`Slovo_Propovedi` — см. Фаза 0.5):
+Меняется **только `VPS_HOST`** (per-repo секрет в репозиториях
+backend/admin/docs; на org-level его переносить не нужно):
 
 - `VPS_HOST` = `<new-vps-ip>`
 - `VPS_SSH_PRIVATE_KEY` — **не трогаем**
 - `VPS_SSH_USER` — **не трогаем**
 - Остальные секреты (JWT, пароли БД/MinIO) — **не меняются**, vault те же.
+
+Org-level vars Forgejo (`Slovo_Propovedi` → Settings → Actions → Variables):
+
+- `REPOSITORY_URL`, `WWW_HOSTNAME`, `MIRROR_GITHUB_LATEST_RELEASE_URL`, `MIRROR_GITHUB_SCREENSHOTS_RAW_URL` и подобные —
+  менять **только если меняется домен, Forgejo-инстанс или GitHub-зеркало**,
+  а не просто IP VPS. Release-workflow лендинга при каждом деплое
+  автоматически перезаписывает `/etc/default/slovo-landing` на VPS из этих
+  vars, так что ручная правка файла на VPS не нужна и будет перезатёрта.
+- Internal vars (`POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`,
+  `POSTGRES_DB`, `MINIO_ENDPOINT`, `MINIO_MAIN_PORT_IN`) — **не трогаем**:
+  имена контейнеров и внутренние порты сохраняются при переезде.
 
 ### 7. Редеплой приложений
 

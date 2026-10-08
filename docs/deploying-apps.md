@@ -29,6 +29,53 @@ Each app repo holds its own Forgejo secrets (`VPS_SSH_PRIVATE_KEY`, `VPS_HOST`,
 **not** used by the apps — Traefik and its ACME resolver are configured by the
 playbook's `traefik` role.
 
+## Recommended Forgejo org-level vars and secrets
+
+Org-level vars and secrets (`Slovo_Propovedi` → Settings → Actions →
+Variables / Secrets) exist **only for the apps' release workflows**, which do
+not have access to the playbook's vault. They are created **manually** in the
+Forgejo org settings (there is no API automation in this playbook).
+
+They are **not** a second source of truth. The playbook is private and runs
+locally only; everything playbook-side — IPs, domains, ports, container names,
+credentials — lives in `inventory/` / `host_vars` / `group_vars` plus the
+private vault (`host_vars/vars.yml`: postgres/admin/minio root passwords).
+Nothing from the vault is duplicated into Forgejo. Org vars are **references**
+to playbook values and must be kept in sync **manually**, only where an app
+workflow needs the same value the playbook already defines.
+
+Org **variables** (values are references from this playbook — keep them
+matching `host_vars` / `group_vars`):
+
+| Var | Value (per this playbook) |
+| --- | --- |
+| `POSTGRES_HOST` | `slovo-pgbouncer` |
+| `POSTGRES_PORT` | `5432` |
+| `POSTGRES_USER` | `slovo` |
+| `POSTGRES_DB` | `slovo` |
+| `MINIO_ENDPOINT` | `slovo-minio` |
+| `MINIO_MAIN_PORT_IN` | `9000` |
+| `WWW_HOSTNAME` | landing's public hostname (landing only) |
+| `REPOSITORY_URL` | базовый URL инстанса с репозиториями (сейчас git.lightnode.ru) |
+| `MIRROR_GITHUB_LATEST_RELEASE_URL` | `https://api.github.com/repos/Slovo-Propovedi/slovo-propovedi-mobile/releases/latest` |
+| `MIRROR_GITHUB_SCREENSHOTS_RAW_URL` | `https://raw.githubusercontent.com/Slovo-Propovedi/slovo-propovedi-mobile/main/assets/screenshots` |
+| `RENOVATE_GIT_AUTHOR` | author Renovate commits as |
+
+`REPOSITORY_URL`, `MIRROR_GITHUB_LATEST_RELEASE_URL` and `MIRROR_GITHUB_SCREENSHOTS_RAW_URL` are also written by the
+landing release workflow into `/etc/default/slovo-landing` on the VPS on
+every deploy — the timer-driven refresh scripts (`vps-refresh-apk`,
+`vps-refresh-screenshots`) source that file. Do **not** create it manually:
+the workflow owns it.
+
+Org **secrets**:
+
+| Secret | Value |
+| --- | --- |
+| `MINIO_ACCESS_KEY` | the MinIO root user (from vault — this is the one vault value an app workflow needs, because workflows have no vault access) |
+
+`VPS_HOST`, `VPS_SSH_USER`, `VPS_SSH_PRIVATE_KEY` stay **per-repo** secrets
+(each app repo holds its own copy) — do **not** move them to the org level.
+
 ## What each app deploy script expects from the playbook
 
 - Docker installed and running.
@@ -47,9 +94,12 @@ If any of these is missing, the app deploy aborts with
 
 ## Ports and wiring
 
-- PgBouncer listens on **5432** (not 6432) inside its container, because the
-  backend hardcodes `POSTGRES_PORT=5432` and cannot be reconfigured. See
-  `roles/custom/slovo-pgbouncer/defaults/main.yml`.
+- PgBouncer listens on **5432** (not 6432) inside its container, matching the
+  backend's Forgejo org var `POSTGRES_PORT=5432`. The backend reads
+  `POSTGRES_HOST` / `POSTGRES_PORT` / `POSTGRES_USER` / `POSTGRES_DB` /
+  `MINIO_ENDPOINT` / `MINIO_MAIN_PORT_IN` from org-level vars, so these can be
+  changed — but the org vars must be updated to match (see the org-level table
+  above). See `roles/custom/slovo-pgbouncer/defaults/main.yml`.
 - The backend reaches the database via `slovo-pgbouncer:5432` on the
   `slovo-postgres` Docker network, and MinIO via `slovo-minio:9000` on the
   `slovo-minio` network.

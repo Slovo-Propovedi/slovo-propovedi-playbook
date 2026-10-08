@@ -18,12 +18,13 @@ slovo_pgbouncer_container_image: "edoburu/pgbouncer:latest"
 
 # The port PgBouncer listens on (inside the container, on the shared Docker network).
 #
-# NOTE: this is deliberately 5432, NOT 6432. The backend source hardcodes
-# POSTGRES_PORT=5432 (see docs/deploying-apps.md) and cannot be told to use
-# another port, so PgBouncer must listen on 5432 for the backend to reach it.
-# It is a separate container from postgres, so both can use port 5432 on the
-# same Docker network without conflict — `slovo-postgres:5432` and
-# `slovo-pgbouncer:5432` resolve to different containers.
+# NOTE: this is deliberately 5432, NOT 6432. The backend reads POSTGRES_PORT
+# from Forgejo org-level vars, and the org value is 5432 to match (see
+# docs/deploying-apps.md). The port can be changed, but the org var must be
+# updated to match. PgBouncer is a separate container from postgres, so both
+# can use port 5432 on the same Docker network without conflict —
+# `slovo-postgres:5432` and `slovo-pgbouncer:5432` resolve to different
+# containers.
 slovo_pgbouncer_container_port: 5432
 
 slovo_pgbouncer_base_path: "{{ slovo_base_data_path }}/pgbouncer"

@@ -239,9 +239,15 @@ slovo_pgbouncer_enabled: true
 slovo_pgbouncer_identifier: slovo-pgbouncer
 
 # The port PgBouncer listens on inside its container.
-# NOTE: this is deliberately 5432, NOT 6432 — the backend service (deployed
-# separately via Forgejo Actions) hardcodes POSTGRES_PORT=5432 and cannot be told
-# to use another port, so the pooler must listen on 5432 for it to reach the DB.
+# The backend (deployed separately via Forgejo Actions) reads POSTGRES_HOST /
+# POSTGRES_PORT / POSTGRES_USER / POSTGRES_DB / MINIO_ENDPOINT /
+# MINIO_MAIN_PORT_IN from Forgejo org-level vars, so the ports and hostnames
+# below CAN be changed — but if you change them, update the corresponding
+# org vars in Forgejo (Settings → organization → Actions → Variables) to
+# match. Current reference values (matching this playbook):
+#   POSTGRES_HOST=slovo-pgbouncer  POSTGRES_PORT=5432
+#   POSTGRES_USER=slovo            POSTGRES_DB=slovo
+#   MINIO_ENDPOINT=slovo-minio     MINIO_MAIN_PORT_IN=9000
 slovo_pgbouncer_container_port: 5432
 
 # Primary network (own — for self-containment, following the per-service pattern)
