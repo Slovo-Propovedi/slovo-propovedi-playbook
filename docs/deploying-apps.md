@@ -60,6 +60,11 @@ matching `host_vars` / `group_vars`):
 | `MIRROR_GITHUB_LATEST_RELEASE_URL` | `https://api.github.com/repos/Slovo-Propovedi/slovo-propovedi-mobile/releases/latest` |
 | `MIRROR_GITHUB_SCREENSHOTS_RAW_URL` | `https://raw.githubusercontent.com/Slovo-Propovedi/slovo-propovedi-mobile/main/assets/screenshots` |
 | `RENOVATE_GIT_AUTHOR` | author Renovate commits as |
+| `INTERNAL_PORT` | `3000` (внутренний порт контейнера бэкенда, куда смотрит Traefik) |
+| `TRAEFIK_NETWORK` | `traefik` (docker-сеть reverse-proxy; `slovo_playbook_reverse_proxy_container_network` в `roles/custom/slovo-base/defaults/main.yml`) |
+| `POSTGRES_NETWORK` | `slovo-postgres` (`group_vars/slovo_servers/main.yml`) |
+| `MINIO_NETWORK` | `slovo-minio` (`group_vars/slovo_servers/main.yml`) |
+| `TRAEFIK_SERVICE` | `slovo-traefik.service` (systemd-юнит, `group_vars/slovo_servers/main.yml`) |
 
 `REPOSITORY_URL`, `MIRROR_GITHUB_LATEST_RELEASE_URL` and `MIRROR_GITHUB_SCREENSHOTS_RAW_URL` are also written by the
 landing release workflow into `/etc/default/slovo-landing` on the VPS on
