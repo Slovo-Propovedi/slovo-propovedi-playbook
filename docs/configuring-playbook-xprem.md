@@ -23,6 +23,11 @@ The OTA server needs both the shared Traefik network (to be reachable from the i
 
 The `xprem` database and role are provisioned declaratively by the postgres role through `postgres_managed_databases_additional` (see `group_vars`), which references `slovo_xprem_postgres_db` and `slovo_xprem_postgres_user` — both defined in host vars, like `slovo_backend_postgres_db` / `slovo_backend_postgres_user`. Because `postgres_backup_databases_auto` is derived from `postgres_managed_databases`, the xprem database is included in the daily `pg_dump` rotation with no extra configuration. The database schema is created and migrated by xprem itself on boot (look for `⚙️  [CONTROL] Initializing Control Plane (DB Mode)..` in the logs).
 
+> [!NOTE]
+> **Legacy clusters and the locale workaround.** The vendored postgres role creates a managed database with `CREATE DATABASE ... LC_CTYPE ... LC_COLLATE ...` but no `TEMPLATE template0`. PostgreSQL refuses a locale that differs from the collation of template1. This VPS's cluster was initialized before the `ru_RU.UTF-8` override in `group_vars` (template1 is `C`), so the role's own `CREATE DATABASE` fails with `new collation (ru_RU.UTF-8) is incompatible with the collation of the template database (C)`. The role runs psql with `ON_ERROR_STOP=0` and only fails on lines matching `^ERROR:`, while psql prefixes errors from a `--file` run with `psql:<file>:<line>: ERROR:` — so the failure is swallowed and the task still reports `changed` even though the database was not created.
+>
+> To close this gap, the `postgres_managed_databases_additional` entry carries an idempotent `additional_sql_queries` statement that creates the database `WITH TEMPLATE template0` (the only template that permits a different locale). It is a no-op once the database exists, and also a no-op on fresh clusters whose template1 already has the configured locale, so `setup-postgres` remains safe to re-run.
+
 ### Storage and delivery
 
 With `STORAGE_MODE=local` the server writes published bundles and assets to the bind-mounted `/data` directory and serves them itself. There is no CDN: device downloads traverse Traefik and this VPS, so OTA traffic counts against the server's bandwidth and the 256 MB memory cap.
@@ -55,9 +60,11 @@ The role does not ship default values for these: an undefined secret aborts the 
 | `secret_slovo_xprem_postgres_password` | Password of the `xprem` PostgreSQL role and of the `DB_URL` DSN | `openssl rand -hex 32` |
 | `secret_slovo_xprem_db_keys_master_key` | `DB_KEYS_MASTER_KEY_B64` — master key that seals per-app Expo signing keys in PostgreSQL | `openssl rand -base64 32` |
 | `secret_slovo_xprem_jwt_secret` | `JWT_SECRET` — dashboard/API token signing secret | `openssl rand -base64 32` |
-| `secret_slovo_xprem_admin_password` | `ADMIN_PASSWORD` — password of the first dashboard admin | strong password, e.g. `openssl rand -base64 24` |
+| `secret_slovo_xprem_admin_password` | `ADMIN_PASSWORD` — password of the first dashboard admin | policy-compliant password, e.g. `printf '%s!Aa1' "$(openssl rand -hex 12)"` |
 
 Use a hex password for the database: it lands inside a `postgres://` URL, and `/` or `+` from base64 output would need percent-encoding in the DSN.
+
+`ADMIN_PASSWORD` is not a URL component, but xprem enforces its password policy when seeding the first admin: at least 8 characters with an uppercase letter, a lowercase letter, a digit and a special character. A non-compliant value does not fail the playbook — the container crash-loops in the seed-admin migration — so generate it with the policy in mind (the command above guarantees all four classes).
 
 Encrypt each value and paste the result into the secrets section at the bottom of `inventory/host_vars/slovo-propovedi.ru/vars.yml`:
 
@@ -65,7 +72,7 @@ Encrypt each value and paste the result into the secrets section at the bottom o
 ansible-vault encrypt_string --name 'secret_slovo_xprem_postgres_password' "$(openssl rand -hex 32)"
 ansible-vault encrypt_string --name 'secret_slovo_xprem_db_keys_master_key' "$(openssl rand -base64 32)"
 ansible-vault encrypt_string --name 'secret_slovo_xprem_jwt_secret' "$(openssl rand -base64 32)"
-ansible-vault encrypt_string --name 'secret_slovo_xprem_admin_password' "$(openssl rand -base64 24)"
+ansible-vault encrypt_string --name 'secret_slovo_xprem_admin_password' "$(printf '%s!Aa1' "$(openssl rand -hex 12)")"
 ```
 
 The command prints a `!vault |` block; paste it under the secrets header next to the existing `secret_slovo_*` entries.
@@ -143,6 +150,11 @@ ansible-playbook -i inventory/hosts setup.yml \
 ```
 
 Both extra tags matter: without `setup-postgres` the managed-databases tasks are skipped, and `start` is what makes the systemd service manager enable and start the unit.
+
+Verified on this VPS (2026-10-24): the sequence above provisions the database, renders the env file and starts the unit. To provision only the database (for example to unblock an already-deployed unit), `--tags=setup-postgres` is sufficient — it is idempotent and never touches an existing database. Restart the unit afterwards with `systemctl restart slovo-xprem.service` (or include the `start` tag).
+
+> [!NOTE]
+> **One-time bootstrap already performed on this host (2026-10-24).** Before the `TEMPLATE template0` workaround was added, the postgres role had created the `xprem` role and its password but not the database, because of the locale/template1 mismatch described under [Database](#database). The database was created once by hand with `TEMPLATE template0`; every later `setup-postgres` run is idempotent. Hosts provisioned with the current playbook need no manual step.
 
 > [!WARNING]
 > `just setup-slovo-xprem --ask-vault-pass` expands to `--tags=setup-slovo-xprem,start` and **never creates the database**. On a first apply the unit starts against a nonexistent database and enters a restart loop; `journalctl -u slovo-xprem.service` shows `FATAL: database "xprem" does not exist (SQLSTATE 3D000)`. Use it only after the database already exists (created by an earlier `setup-all`/`setup-postgres` run).
@@ -233,7 +245,7 @@ The `xprem` database is part of the daily pg_dump rotation automatically (see [C
 | Traefik returns 502 | xprem is not running, or the `traefik.docker.network` label points at the wrong network | `journalctl -u slovo-xprem.service -n 100`; the label must name the shared Traefik network (`traefik`), which is what `group_vars` wires |
 | Container restart loop, `JWT_SECRET not set` or `Neither AWSSM_DB_KEYS_MASTER_KEY_SECRET_ID nor DB_KEYS_MASTER_KEY_B64 is set` | A `secret_slovo_xprem_*` variable is undefined (the env file rendered empty) | Check the vault vars and re-run `just setup-slovo-xprem --ask-vault-pass` |
 | `Invalid BASE_URL` in the journal | `slovo_xprem_hostname` is empty while Traefik labels are disabled | Set the hostname — `BASE_URL` is always built from it |
-| Database connection errors (`FATAL: database ... does not exist`) | The `xprem` database was never provisioned — the postgres tags did not run | Run `just setup-all --ask-vault-pass` or add `setup-postgres` to the tags (see [First apply](#first-apply)), then restart `slovo-xprem` |
+| Database connection errors (`FATAL: database ... does not exist`) | The `xprem` database was never provisioned: the postgres tags did not run, or the role's `CREATE DATABASE` failed silently on a legacy cluster (locale/template1 mismatch) | Check `SELECT datname FROM pg_database`; run `just setup-all --ask-vault-pass` or add `setup-postgres` to the tags (see [First apply](#first-apply)), then restart `slovo-xprem`. The `TEMPLATE template0` bootstrap in `group_vars` covers the legacy-cluster case |
 | Database SSL negotiation failure | PostgreSQL in this stack serves no TLS; the role already pins `?sslmode=disable` in `DB_URL` | Verify the rendered `/slovo/xprem/env` still carries `?sslmode=disable`; if it does not, re-run a setup that includes `setup-slovo-xprem` so the env file is re-rendered |
 | Journal shows `unknown environment variable` warnings | The pinned image renamed or dropped a variable | Compare the rendered env file with the docs for that tag and adjust `env.j2` |
 | `docker logs slovo-xprem` prints nothing | Expected: the unit uses `--log-driver=none` | Use `journalctl -u slovo-xprem.service` (container output is attached to the unit) |

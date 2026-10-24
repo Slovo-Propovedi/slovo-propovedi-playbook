@@ -95,6 +95,35 @@ postgres_managed_databases_additional:
   - name: "{{ slovo_xprem_postgres_db }}"
     username: "{{ slovo_xprem_postgres_user }}"
     password: "{{ secret_slovo_xprem_postgres_password }}"
+    # The vendored postgres role creates a managed database with
+    # `CREATE DATABASE ... LC_CTYPE ... LC_COLLATE ...` but no `TEMPLATE template0`.
+    # PostgreSQL rejects that whenever the requested locale differs from the
+    # collation of template1. This cluster was initialized before the locale
+    # override below (template1 is `C`, the override is `ru_RU.UTF-8`), so the
+    # role's own `CREATE DATABASE` fails with:
+    #   new collation (ru_RU.UTF-8) is incompatible with the collation of the
+    #   template database (C)
+    # The role executes psql with `ON_ERROR_STOP=0` and only fails on lines
+    # matching `^ERROR:`, while psql prefixes errors from a `--file` run with
+    # `psql:<file>:<line>: ERROR:` — so the failure is swallowed and the task
+    # still reports "changed" without creating the database.
+    #
+    # This statement is the fix: template0 is the only template that permits a
+    # different locale. It is idempotent (no-op once the database exists) and a
+    # no-op on clusters whose template1 already has the configured locale.
+    additional_sql_queries:
+      - |
+        SELECT format(
+          'CREATE DATABASE "%s" WITH TEMPLATE template0 LC_CTYPE %L LC_COLLATE %L OWNER "%s";',
+          '{{ slovo_xprem_postgres_db }}',
+          '{{ postgres_default_lc_type }}',
+          '{{ postgres_default_lc_collate }}',
+          '{{ slovo_xprem_postgres_user }}'
+        )
+        WHERE NOT EXISTS (
+          SELECT 1 FROM pg_database WHERE datname = '{{ slovo_xprem_postgres_db }}'
+        )
+        \gexec
 
 # VPS optimization: 1 vCPU / 2GB RAM — pgtune overrides for a small server.
 #
