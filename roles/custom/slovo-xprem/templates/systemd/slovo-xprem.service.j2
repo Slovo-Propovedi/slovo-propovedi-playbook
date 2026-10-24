@@ -1,0 +1,39 @@
+#jinja2: lstrip_blocks: True
+[Unit]
+Description=slovo-xprem
+{% for service in slovo_xprem_systemd_required_services_list %}
+Requires={{ service }}
+After={{ service }}
+{% endfor %}
+DefaultDependencies=no
+
+[Service]
+Type=simple
+Environment="HOME={{ devture_systemd_docker_base_systemd_unit_home_path }}"
+ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} slovo-xprem 2>/dev/null || true'
+ExecStartPre=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} rm slovo-xprem 2>/dev/null || true'
+ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} create \
+    --rm \
+    --name=slovo-xprem \
+    --log-driver=none \
+    --user={{ slovo_user_uid }}:{{ slovo_user_gid }} \
+    --cap-drop=ALL \
+    --network={{ slovo_xprem_container_network }} \
+    --mount type=bind,src={{ slovo_xprem_data_path }},dst=/data \
+    --env-file={{ slovo_xprem_base_path }}/env \
+    --label-file={{ slovo_xprem_base_path }}/labels \
+    {% for arg in slovo_xprem_container_extra_arguments %}
+    {{ arg }} \
+    {% endfor %}
+    {{ slovo_xprem_container_image }}
+{% for network in slovo_xprem_container_additional_networks %}
+ExecStartPre={{ devture_systemd_docker_base_host_command_docker }} network connect {{ network }} slovo-xprem
+{% endfor %}
+ExecStart={{ devture_systemd_docker_base_host_command_docker }} start --attach slovo-xprem
+ExecStop=-{{ devture_systemd_docker_base_host_command_sh }} -c '{{ devture_systemd_docker_base_host_command_docker }} stop -t {{ devture_systemd_docker_base_container_stop_grace_time_seconds }} slovo-xprem 2>/dev/null || true'
+Restart=always
+RestartSec=30
+SyslogIdentifier=slovo-xprem
+
+[Install]
+WantedBy=multi-user.target

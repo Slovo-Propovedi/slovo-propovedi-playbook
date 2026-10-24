@@ -84,6 +84,16 @@ postgres_managed_databases_auto: |
     ([{'name': slovo_backend_postgres_db, 'username': slovo_backend_postgres_user, 'password': slovo_backend_postgres_password}])
   }}
 
+# Extra databases owned by this playbook (created on postgres startup).
+# The xprem OTA server runs in control-plane mode and stores apps, branches,
+# channels, its audit trail and the sealed per-app signing keys here.
+# `postgres_managed_databases` feeds `postgres_backup_databases_auto`, so the
+# xprem database is included in the daily pg_dump rotation automatically.
+postgres_managed_databases_additional:
+  - name: xprem
+    username: xprem
+    password: "{{ secret_slovo_xprem_postgres_password }}"
+
 # VPS optimization: 1 vCPU / 2GB RAM — pgtune overrides for a small server.
 #
 # NOTE: the postgres role's pgtune variables are expressed in KILOBYTES (see
@@ -205,6 +215,34 @@ slovo_minio_container_additional_networks_auto: |
   }}
 
 # =============================================================================
+# xprem (self-hosted Expo OTA update server, control-plane mode)
+# =============================================================================
+
+slovo_xprem_enabled: true
+slovo_xprem_identifier: slovo-xprem
+slovo_xprem_base_path: "{{ slovo_base_data_path }}/xprem"
+
+# Primary network
+slovo_xprem_container_network: slovo-xprem
+
+# Cross-network joins: xprem must reach traefik (dashboard/API/manifest) + postgres (DB)
+slovo_xprem_container_additional_networks_auto: |
+  {{
+    ([slovo_playbook_reverse_proxy_container_network] if slovo_playbook_traefik_labels_enabled and slovo_playbook_reverse_proxy_container_network else [])
+    + ([postgres_container_network] if postgres_enabled else [])
+  }}
+
+# Gate Traefik labels on the hub switch (same as the other custom roles).
+slovo_xprem_container_labels_traefik_enabled: "{{ slovo_playbook_traefik_labels_enabled }}"
+slovo_xprem_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
+
+# xprem depends on postgres being up (its control plane migrates the schema on boot)
+slovo_xprem_systemd_required_services_list_auto: |
+  {{
+    ([postgres_identifier + '.service'] if postgres_enabled else [])
+  }}
+
+# =============================================================================
 # Adminer
 # =============================================================================
 
@@ -282,7 +320,7 @@ slovo_admin_user_enabled: true
 # Service registry for systemd_service_manager
 # =============================================================================
 # Lower priority = starts first, stops last
-# Order: traefik (250) → postgres (500) → postgres-backup (520) → pgbouncer (550) → minio (600) → adminer (2100)
+# Order: traefik (250) → postgres (500) → postgres-backup (520) → pgbouncer (550) → minio (600) → xprem (700) → adminer (2100)
 
 # VPS optimization: restart services in priority batches (non-blocking within each
 # priority level), so a restart storm doesn't overwhelm a single-core box.
@@ -305,6 +343,7 @@ devture_systemd_service_manager_services_list_auto: |
     + ([{'name': (postgres_backup_identifier ~ '.service'), 'priority': 520, 'restart_necessary': postgres_backup_restart_necessary | bool, 'groups': ['slovo', 'postgres-backup']}] if postgres_backup_enabled and postgres_enabled else [])
     + ([{'name': 'slovo-pgbouncer.service', 'priority': 550, 'restart_necessary': slovo_pgbouncer_restart_necessary | bool, 'groups': ['slovo', 'pgbouncer']}] if slovo_pgbouncer_enabled else [])
     + ([{'name': 'slovo-minio.service', 'priority': 600, 'restart_necessary': slovo_minio_restart_necessary | bool, 'groups': ['slovo', 'minio']}] if slovo_minio_enabled else [])
+    + ([{'name': 'slovo-xprem.service', 'priority': 700, 'restart_necessary': slovo_xprem_restart_necessary | bool, 'groups': ['slovo', 'xprem']}] if slovo_xprem_enabled else [])
     + ([{'name': 'slovo-adminer.service', 'priority': 2100, 'restart_necessary': slovo_adminer_restart_necessary | bool, 'groups': ['slovo', 'adminer']}] if slovo_adminer_enabled else [])
    }}
 

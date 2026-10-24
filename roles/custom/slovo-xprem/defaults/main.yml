@@ -1,0 +1,100 @@
+---
+
+# slovo-xprem is a self-hosted OTA (over-the-air) update server for the
+# slovo-propovedi mobile app. It speaks the Expo Updates protocol v1 and,
+# in control-plane mode (DB_URL set), keeps apps/branches/channels and the
+# per-app code-signing keys in PostgreSQL.
+# Project source code URL: https://github.com/mercuretechnologies/xprem
+# Upstream project was formerly named `expo-open-ota`.
+#
+# This role runs the server in control-plane mode with local filesystem
+# storage: the dashboard, the REST/publish API and the device-facing
+# `/manifest` endpoint all listen on port 3000 and are exposed through
+# Traefik under a single hostname.
+
+slovo_xprem_enabled: true
+
+# The identifier used for the container name and the systemd service name.
+slovo_xprem_identifier: "slovo-xprem"
+
+# Pinned upstream release (the project publishes signed images to GHCR).
+slovo_xprem_version: "v3.2.6"
+
+# The hostname at which xprem is served (e.g. ota.example.com).
+# This is also the server's BASE_URL, and therefore the `updates.url` baked
+# into the mobile app: devices fetch `https://<hostname>/manifest`.
+slovo_xprem_hostname: ''
+
+# The path at which xprem is served.
+# This value must either be `/` or not end with a slash (e.g. `/ota`).
+slovo_xprem_path_prefix: /
+
+slovo_xprem_base_path: "{{ slovo_base_data_path }}/xprem"
+# Local storage root: bundles and assets published by eoas land here.
+# The container mounts this directory at /data (see LOCAL_BUCKET_BASE_PATH).
+slovo_xprem_data_path: "{{ slovo_xprem_base_path }}/data"
+
+# The container image name, with support for a custom registry prefix (e.g. `registry.example.com/`).
+slovo_xprem_container_image_name_prefix: ""
+slovo_xprem_container_image: "{{ slovo_xprem_container_image_name_prefix }}ghcr.io/mercuretechnologies/xprem:{{ slovo_xprem_version }}"
+
+# The base container network. It will be auto-created by this role if it doesn't exist already.
+slovo_xprem_container_network: slovo-xprem
+
+# A list of additional container networks that the container would be connected to.
+# The role does not create these networks, so make sure they already exist.
+slovo_xprem_container_additional_networks: "{{ slovo_xprem_container_additional_networks_default + slovo_xprem_container_additional_networks_auto + slovo_xprem_container_additional_networks_custom }}"
+slovo_xprem_container_additional_networks_default: []
+slovo_xprem_container_additional_networks_auto: []
+slovo_xprem_container_additional_networks_custom: []
+
+# slovo_xprem_container_labels_traefik_enabled controls whether labels to assist a Traefik reverse-proxy will be attached to the container.
+# See `../templates/labels.j2` for details.
+slovo_xprem_container_labels_traefik_enabled: true
+slovo_xprem_container_labels_traefik_docker_network: "{{ slovo_playbook_reverse_proxy_container_network }}"
+slovo_xprem_container_labels_traefik_hostname: "{{ slovo_xprem_hostname }}"
+# The path prefix must either be `/` or not end with a slash (e.g. `/ota`).
+slovo_xprem_container_labels_traefik_path_prefix: "{{ slovo_xprem_path_prefix }}"
+slovo_xprem_container_labels_traefik_rule: "Host(`{{ slovo_xprem_container_labels_traefik_hostname }}`){% if slovo_xprem_container_labels_traefik_path_prefix != '/' %} && PathPrefix(`{{ slovo_xprem_container_labels_traefik_path_prefix }}`){% endif %}"
+slovo_xprem_container_labels_traefik_entrypoints: web-secure
+slovo_xprem_container_labels_traefik_tls: "{{ slovo_xprem_container_labels_traefik_entrypoints != 'web' }}"
+slovo_xprem_container_labels_traefik_tls_certResolver: default  # noqa var-naming
+
+# A list of extra arguments to pass to the container.
+# VPS optimization: cap the Go server at 256MB; it serves manifests and
+# bundle downloads for a small fleet and does not need more.
+slovo_xprem_container_extra_arguments:
+  - "--memory=256m"
+
+# List of systemd services that slovo-xprem.service depends on
+slovo_xprem_systemd_required_services_list: "{{ slovo_xprem_systemd_required_services_list_default + slovo_xprem_systemd_required_services_list_auto + slovo_xprem_systemd_required_services_list_custom }}"
+slovo_xprem_systemd_required_services_list_default: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
+slovo_xprem_systemd_required_services_list_auto: []
+slovo_xprem_systemd_required_services_list_custom: []
+
+# The email of the first dashboard admin account (non-secret).
+# Required when the dashboard is enabled (USE_DASHBOARD=true is always set by this role).
+slovo_xprem_admin_email: ''
+
+# Required secrets (normally provided via the vault in host_vars):
+#   secret_slovo_xprem_postgres_password  — password of the `xprem` PostgreSQL role
+#   secret_slovo_xprem_db_keys_master_key — base64 master key that seals the per-app
+#                                           Expo signing keys stored in Postgres
+#   secret_slovo_xprem_jwt_secret         — dashboard/JWT signing secret
+#   secret_slovo_xprem_admin_password     — first admin password (read on first boot only)
+# There are intentionally no defaults: leaving any of them undefined fails the
+# apply loudly instead of booting a server with a predictable password.
+# See `docs/configuring-playbook-xprem.md` for generation commands.
+
+# slovo_xprem_restart_necessary controls whether the service
+# will be restarted (when true) or merely started (when false) by the
+# systemd service manager role (when conditional restart is enabled).
+#
+# This value is automatically computed during installation based on whether
+# any configuration files, the systemd service file, or the container image changed.
+# The default of `false` means "no restart needed" — appropriate when the role's
+# installation tasks haven't run (e.g., due to --tags skipping them).
+slovo_xprem_restart_necessary: false
+
+# Controls whether uninstall also removes the local update storage (defaults to false).
+slovo_xprem_uninstall_remove_data: false

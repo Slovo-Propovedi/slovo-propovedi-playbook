@@ -32,6 +32,14 @@
       "matchStrings": ["slovo_adminer_version:\\s*\"(?<currentValue>[^\"]+)\""],
       "depNameTemplate": "adminer",
       "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "xprem OTA server image version (slovo-xprem role).",
+      "managerFilePatterns": ["/^roles/custom/slovo-xprem/defaults/main\\.yml$/"],
+      "matchStrings": ["slovo_xprem_version:\\s*\"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "ghcr.io/mercuretechnologies/xprem",
+      "datasourceTemplate": "docker"
     }
   ]
 }

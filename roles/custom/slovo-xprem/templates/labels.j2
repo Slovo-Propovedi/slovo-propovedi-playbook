@@ -1,0 +1,18 @@
+{% if slovo_xprem_container_labels_traefik_enabled %}
+traefik.enable=true
+
+{% if slovo_xprem_container_labels_traefik_docker_network %}
+traefik.docker.network={{ slovo_xprem_container_labels_traefik_docker_network }}
+{% endif %}
+
+# Dashboard, REST/publish API and the device-facing /manifest endpoint all
+# share one listener.
+traefik.http.services.slovo-xprem.loadbalancer.server.port=3000
+traefik.http.routers.slovo-xprem.rule={{ slovo_xprem_container_labels_traefik_rule }}
+traefik.http.routers.slovo-xprem.service=slovo-xprem
+traefik.http.routers.slovo-xprem.entrypoints={{ slovo_xprem_container_labels_traefik_entrypoints }}
+traefik.http.routers.slovo-xprem.tls={{ slovo_xprem_container_labels_traefik_tls | to_json }}
+{% if slovo_xprem_container_labels_traefik_tls %}
+traefik.http.routers.slovo-xprem.tls.certResolver={{ slovo_xprem_container_labels_traefik_tls_certResolver }}
+{% endif %}
+{% endif %}

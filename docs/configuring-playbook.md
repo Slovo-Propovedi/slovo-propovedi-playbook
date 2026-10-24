@@ -2,7 +2,7 @@
 
 <sup>Prerequisites > Configuring DNS > Configuring the playbook > Installing > Usage</sup>
 
-This playbook deploys the **slovo-propovedi** infrastructure — PostgreSQL, PgBouncer, MinIO S3 storage, and an optional Adminer DB UI. It follows the [matrix-docker-ansible-deploy](https://github.com/spantaleev/matrix-docker-ansible-deploy) pattern: every service runs in its own Docker container managed by a systemd unit, with [Traefik](https://traefik.io/) as the reverse proxy in front of everything.
+This playbook deploys the **slovo-propovedi** infrastructure — PostgreSQL, PgBouncer, MinIO S3 storage, a self-hosted Expo OTA update server (xprem), and an optional Adminer DB UI. It follows the [matrix-docker-ansible-deploy](https://github.com/spantaleev/matrix-docker-ansible-deploy) pattern: every service runs in its own Docker container managed by a systemd unit, with [Traefik](https://traefik.io/) as the reverse proxy in front of everything.
 
 Here's what gets installed on your server:
 
@@ -12,6 +12,7 @@ Here's what gets installed on your server:
 | PostgreSQL backup | `slovo-postgres-backup.service` | `slovo-postgres-backup` | Daily pg_dump with rotation |
 | PgBouncer | `slovo-pgbouncer.service` | `slovo-pgbouncer` | Connection pooler in front of PostgreSQL |
 | MinIO | `slovo-minio.service` | `slovo-minio` | S3-compatible object storage (API port 9000, console port 9001) |
+| xprem | `slovo-xprem.service` | `slovo-xprem` | Self-hosted Expo OTA update server (dashboard + API + `/manifest`, port 3000) |
 | Adminer (optional) | `slovo-adminer.service` | `slovo-adminer` | Web-based database administration (port 8080) |
 | Traefik | `slovo-traefik.service` | `slovo-traefik` | Reverse proxy — TLS termination, Let's Encrypt, routing |
 
@@ -19,6 +20,7 @@ Related documentation:
 
 - [Configuring Traefik](configuring-traefik.md) — details about the reverse proxy.
 - [Configuring backups](configuring-backups.md) — PostgreSQL dumps + NAS pull.
+- [Configuring xprem](configuring-playbook-xprem.md) — self-hosted Expo OTA updates.
 
 ## Prerequisites
 
@@ -46,6 +48,7 @@ Every service is served by Traefik on ports 80/443, so all of the records below 
 | --- | --- | --- |
 | `minio-api.example.com` | your server's IP | MinIO S3 API |
 | `minio-console.example.com` | your server's IP | MinIO console |
+| `ota.slovo-propovedi.ru` | A → your server's IP (`<VPS IP>`) | xprem — OTA updates, dashboard and publish API |
 | `adminer.example.com` | your server's IP | Adminer (only needed if you enable it) |
 
 Replace `example.com` with your own domain throughout this guide.
@@ -113,6 +116,19 @@ slovo_adminer_enabled: true
 slovo_adminer_hostname: adminer.example.com
 
 # ──────────────────────────────────────────────
+# xprem (self-hosted Expo OTA update server)
+# ──────────────────────────────────────────────
+slovo_xprem_enabled: true
+slovo_xprem_hostname: ota.example.com
+slovo_xprem_admin_email: admin@example.com
+# The role also needs four vault-encrypted secrets:
+#   secret_slovo_xprem_postgres_password
+#   secret_slovo_xprem_db_keys_master_key
+#   secret_slovo_xprem_jwt_secret
+#   secret_slovo_xprem_admin_password
+# See docs/configuring-playbook-xprem.md for generation commands.
+
+# ──────────────────────────────────────────────
 # Admin user seeding (used by the ensure-slovo-users-created tag)
 # ──────────────────────────────────────────────
 slovo_admin_user_enabled: true
@@ -135,6 +151,8 @@ slovo_admin_user_password: CHANGE_ME_admin_password
 - **MinIO** — `slovo_minio_root_user`/`slovo_minio_root_password` are the MinIO server's root credentials. Set `slovo_minio_hostname`/`slovo_minio_console_hostname` to the public hostnames of the S3 API and console.
 
 - **Adminer (optional)** — a lightweight database web UI. Set `slovo_adminer_enabled: false` (or remove the `slovo_adminer_*` variables) to skip it entirely. Adminer asks for credentials manually in the browser — connect to server `slovo-postgres` with the PostgreSQL credentials above.
+
+- **xprem** — the self-hosted OTA update server for the mobile app (apps, branches, channels, code signing). It runs in control-plane mode against the shared PostgreSQL instance and stores published bundles on local disk under `/slovo/xprem/data`. `slovo_xprem_hostname` must be the same host baked into the app as `updates.url`; the dashboard lives at `https://<hostname>/dashboard`. See [Configuring xprem](configuring-playbook-xprem.md).
 
 - **Admin user seeding** — the playbook can insert the first admin user into the database. This is a **separate, on-demand step** (see below), and it requires `slovo_admin_user_username`, `slovo_admin_user_email`, and `slovo_admin_user_password` to be set. Login is by **username** (`slovo_admin_user_username`); the email is retained in the database for display only. For existing installs, `slovo_admin_user_username` MUST match the username already present in the database — otherwise `ON CONFLICT (username)` would attempt to insert a second row with the same email and hit the email unique constraint.
 
@@ -167,7 +185,7 @@ just roles
 just setup-all
 ```
 
-This installs all services (Docker, PostgreSQL, PgBouncer, MinIO, Adminer, Traefik) and starts them.
+This installs all services (Docker, PostgreSQL, PgBouncer, MinIO, xprem, Adminer, Traefik) and starts them.
 
 The **applications** — backend API, admin SPA, docs site and the site apex
 (`slovo-propovedi.ru` + `www`) — are **not** installed by this playbook. Each
@@ -212,13 +230,15 @@ After installation, everything is available over HTTPS:
 | What | URL |
 | --- | --- |
 | MinIO console | `https://minio-console.example.com` |
+| xprem dashboard | `https://ota.slovo-propovedi.ru/dashboard` |
 | Adminer | `https://adminer.example.com` (if enabled) |
 
 You can check service status and logs on the server:
 
 ```sh
-systemctl status slovo-postgres slovo-pgbouncer slovo-minio slovo-traefik slovo-adminer
+systemctl status slovo-postgres slovo-pgbouncer slovo-minio slovo-xprem slovo-traefik slovo-adminer
 journalctl -u slovo-postgres.service -f
+journalctl -u slovo-xprem.service -f
 ```
 
 ## Troubleshooting

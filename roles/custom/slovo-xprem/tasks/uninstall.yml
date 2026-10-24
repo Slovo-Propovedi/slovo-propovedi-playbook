@@ -1,0 +1,37 @@
+---
+
+- name: Check existence of slovo-xprem service
+  ansible.builtin.stat:
+    path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-xprem.service"
+  register: slovo_xprem_service_stat
+
+- name: Stop and remove the existing slovo-xprem systemd service
+  when: slovo_xprem_service_stat.stat.exists | bool
+  block:
+    - name: Ensure slovo-xprem is stopped
+      ansible.builtin.service:
+        name: slovo-xprem
+        state: stopped
+        enabled: false
+        daemon_reload: true
+
+    - name: Ensure slovo-xprem.service doesn't exist
+      ansible.builtin.file:
+        path: "{{ devture_systemd_docker_base_systemd_path }}/slovo-xprem.service"
+        state: absent
+
+- name: Ensure slovo-xprem container doesn't exist
+  ansible.builtin.command:
+    cmd: "{{ devture_systemd_docker_base_host_command_docker }} rm -f slovo-xprem"
+  register: slovo_xprem_container_removal_result
+  changed_when: slovo_xprem_container_removal_result.rc == 0
+  failed_when: >-
+    slovo_xprem_container_removal_result.rc != 0
+    and 'No such container' not in slovo_xprem_container_removal_result.stderr
+    and 'no such container' not in slovo_xprem_container_removal_result.stderr
+
+- name: Ensure slovo-xprem paths don't exist
+  ansible.builtin.file:
+    path: "{{ slovo_xprem_base_path }}"
+    state: absent
+  when: "slovo_xprem_uninstall_remove_data | default(false) | bool"

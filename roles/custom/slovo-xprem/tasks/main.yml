@@ -1,0 +1,25 @@
+---
+
+- name: Validate and install slovo-xprem
+  tags:
+    - setup-all
+    - setup-slovo-xprem
+    - install-all
+    - install-slovo-xprem
+  block:
+    - name: Validate slovo-xprem configuration
+      when: slovo_xprem_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
+
+    - name: Install slovo-xprem
+      when: slovo_xprem_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/install.yml"
+
+- name: Uninstall slovo-xprem if disabled
+  tags:
+    - setup-all
+    - setup-slovo-xprem
+  block:
+    - name: Uninstall slovo-xprem
+      when: not slovo_xprem_enabled | bool
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/uninstall.yml"

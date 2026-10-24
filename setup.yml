@@ -67,6 +67,15 @@
         - install-slovo-minio
         - install-all
 
+    # xprem (self-hosted Expo OTA server) runs after postgres (control-plane DB)
+    # and minio; it joins the slovo-postgres and Traefik networks.
+    - role: custom/slovo-xprem
+      tags:
+        - setup-slovo-xprem
+        - setup-all
+        - install-slovo-xprem
+        - install-all
+
     - role: custom/slovo-adminer
       tags:
         - setup-slovo-adminer

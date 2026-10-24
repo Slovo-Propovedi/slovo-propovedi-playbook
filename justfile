@@ -61,6 +61,12 @@ setup-slovo-minio *extra_args: (run-tags "setup-slovo-minio,start" extra_args)
 # Install slovo-minio and start it
 install-slovo-minio *extra_args: (run-tags "install-slovo-minio,start" extra_args)
 
+# Set up slovo-xprem and start it
+setup-slovo-xprem *extra_args: (run-tags "setup-slovo-xprem,start" extra_args)
+
+# Install slovo-xprem and start it
+install-slovo-xprem *extra_args: (run-tags "install-slovo-xprem,start" extra_args)
+
 # Set up slovo-adminer and start it
 setup-slovo-adminer *extra_args: (run-tags "setup-slovo-adminer,start" extra_args)
 

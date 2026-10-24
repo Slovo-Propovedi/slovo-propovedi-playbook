@@ -1,0 +1,22 @@
+---
+
+- name: Fail if required slovo-xprem variables are undefined
+  ansible.builtin.fail:
+    msg: "You need to define a required variable for `{{ item }}`."
+  when: "lookup('vars', item, default='') is none or (lookup('vars', item, default='') | string | length == 0)"
+  with_items:
+    - slovo_xprem_identifier
+    - slovo_xprem_base_path
+    - slovo_xprem_version
+    - slovo_xprem_admin_email
+    # Note: the secret_slovo_xprem_* variables are excluded because they reference
+    # vault-encrypted variables (secret_slovo_xprem_postgres_password,
+    # secret_slovo_xprem_db_keys_master_key, secret_slovo_xprem_jwt_secret,
+    # secret_slovo_xprem_admin_password). Using lookup() here would trigger
+    # decryption and fail when no vault password is available. Those variables
+    # are validated implicitly when the env file is rendered and xprem boots.
+
+- name: Fail if Traefik enabled but no hostname specified
+  ansible.builtin.fail:
+    msg: "You need to set `slovo_xprem_hostname` when using Traefik"
+  when: "slovo_xprem_container_labels_traefik_enabled | bool and slovo_xprem_hostname | length == 0"

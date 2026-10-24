@@ -1,6 +1,6 @@
 # slovo-propovedi-playbook
 
-Ansible playbook for deploying the slovo-propovedi infrastructure services (PostgreSQL, PgBouncer, MinIO, Adminer, Traefik).
+Ansible playbook for deploying the slovo-propovedi infrastructure services (PostgreSQL, PgBouncer, MinIO, xprem OTA update server, Adminer, Traefik).
 
 This playbook follows the [matrix-docker-ansible-deploy](https://github.com/spantaleev/matrix-docker-ansible-deploy) pattern: every service runs in a Docker container managed by systemd, with Traefik as the reverse proxy in front of everything.
 
@@ -11,6 +11,7 @@ It provisions **shared infrastructure only**. The applications (backend API, adm
 - **PostgreSQL 18.4** — primary database
 - **PgBouncer** — connection pooling in front of PostgreSQL
 - **MinIO** — S3-compatible object storage
+- **xprem** — self-hosted Expo OTA update server (control plane + local storage)
 - **Adminer** — web-based database administration
 - **Traefik** — reverse proxy with automatic Let's Encrypt certificates
 - **systemd-managed containers** — each service runs as its own systemd unit
@@ -81,6 +82,7 @@ It provisions **shared infrastructure only**. The applications (backend API, adm
 
 - [Configuring the playbook](docs/configuring-playbook.md)
 - [Configuring Traefik](docs/configuring-traefik.md)
+- [Configuring xprem](docs/configuring-playbook-xprem.md) — self-hosted Expo OTA updates
 - [Configuring backups](docs/configuring-backups.md) — PostgreSQL dumps + NAS pull
 - [Deploying the applications](docs/deploying-apps.md) — how the app repos deploy on top of this playbook
 - [VPS migration runbook — August 2026](docs/migration-2026-08-vps.md)
