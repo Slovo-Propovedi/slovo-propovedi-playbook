@@ -76,6 +76,14 @@ slovo_xprem_systemd_required_services_list_custom: []
 # Required when the dashboard is enabled (USE_DASHBOARD=true is always set by this role).
 slovo_xprem_admin_email: ''
 
+# xprem's PostgreSQL database and role have no defaults — they are concrete
+# deployment values and live in inventory/host_vars/<host>/vars.yml:
+#   slovo_xprem_postgres_db   — database provisioned by the postgres role
+#   slovo_xprem_postgres_user — owner role of that database
+# Both are consumed by `postgres_managed_databases_additional`
+# (group_vars/slovo_servers/main.yml) and the DB_URL DSN (templates/env.j2).
+# Leaving either empty fails validate_config.yml before anything is touched.
+
 # Required secrets (normally provided via the vault in host_vars):
 #   secret_slovo_xprem_postgres_password  — password of the `xprem` PostgreSQL role
 #   secret_slovo_xprem_db_keys_master_key — base64 master key that seals the per-app

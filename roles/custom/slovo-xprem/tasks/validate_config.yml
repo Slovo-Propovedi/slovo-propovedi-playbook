@@ -9,6 +9,8 @@
     - slovo_xprem_base_path
     - slovo_xprem_version
     - slovo_xprem_admin_email
+    - slovo_xprem_postgres_db
+    - slovo_xprem_postgres_user
     # Note: the secret_slovo_xprem_* variables are excluded because they reference
     # vault-encrypted variables (secret_slovo_xprem_postgres_password,
     # secret_slovo_xprem_db_keys_master_key, secret_slovo_xprem_jwt_secret,

@@ -90,8 +90,8 @@ postgres_managed_databases_auto: |
 # `postgres_managed_databases` feeds `postgres_backup_databases_auto`, so the
 # xprem database is included in the daily pg_dump rotation automatically.
 postgres_managed_databases_additional:
-  - name: xprem
-    username: xprem
+  - name: "{{ slovo_xprem_postgres_db }}"
+    username: "{{ slovo_xprem_postgres_user }}"
     password: "{{ secret_slovo_xprem_postgres_password }}"
 
 # VPS optimization: 1 vCPU / 2GB RAM — pgtune overrides for a small server.

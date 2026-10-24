@@ -121,6 +121,9 @@ slovo_adminer_hostname: adminer.example.com
 slovo_xprem_enabled: true
 slovo_xprem_hostname: ota.example.com
 slovo_xprem_admin_email: admin@example.com
+# Database/role provisioned by the postgres role for xprem's control plane.
+slovo_xprem_postgres_db: xprem
+slovo_xprem_postgres_user: xprem
 # The role also needs four vault-encrypted secrets:
 #   secret_slovo_xprem_postgres_password
 #   secret_slovo_xprem_db_keys_master_key

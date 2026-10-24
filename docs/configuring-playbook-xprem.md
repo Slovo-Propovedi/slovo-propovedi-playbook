@@ -21,7 +21,7 @@ The OTA server needs both the shared Traefik network (to be reachable from the i
 
 ### Database
 
-The `xprem` database and role are provisioned declaratively by the postgres role through `postgres_managed_databases_additional` (see `group_vars`). Because `postgres_backup_databases_auto` is derived from `postgres_managed_databases`, the xprem database is included in the daily `pg_dump` rotation with no extra configuration. The database schema is created and migrated by xprem itself on boot (look for `⚙️  [CONTROL] Initializing Control Plane (DB Mode)..` in the logs).
+The `xprem` database and role are provisioned declaratively by the postgres role through `postgres_managed_databases_additional` (see `group_vars`), which references `slovo_xprem_postgres_db` and `slovo_xprem_postgres_user` — both defined in host vars, like `slovo_backend_postgres_db` / `slovo_backend_postgres_user`. Because `postgres_backup_databases_auto` is derived from `postgres_managed_databases`, the xprem database is included in the daily `pg_dump` rotation with no extra configuration. The database schema is created and migrated by xprem itself on boot (look for `⚙️  [CONTROL] Initializing Control Plane (DB Mode)..` in the logs).
 
 ### Storage and delivery
 
@@ -39,6 +39,9 @@ slovo_xprem_enabled: true
 slovo_xprem_hostname: ota.slovo-propovedi.ru
 # Placeholder — change it to a mailbox you actually monitor.
 slovo_xprem_admin_email: admin@slovo-propovedi.ru
+# PostgreSQL database/role owned by xprem (provisioned by the postgres role).
+slovo_xprem_postgres_db: xprem
+slovo_xprem_postgres_user: xprem
 ```
 
 `slovo_xprem_hostname` is also the server's `BASE_URL`, and therefore the `updates.url` baked into the mobile app. Changing it later requires a new native build of the app.
@@ -100,6 +103,8 @@ Most values are wired in `group_vars/slovo_servers/main.yml`; override them only
 | `slovo_xprem_container_extra_arguments` | `["--memory=256m"]` | Extra `docker create` args |
 | `slovo_xprem_systemd_required_services_list` | `default + auto + custom` | Units required before start (`docker`, `slovo-postgres`) |
 | `slovo_xprem_admin_email` | `''` | First admin login (email) |
+| `slovo_xprem_postgres_db` | `''` (required, host vars) | Database provisioned by the postgres role and used in the `DB_URL` DSN |
+| `slovo_xprem_postgres_user` | `''` (required, host vars) | Owner role of that database (`DB_URL` user) |
 | `slovo_xprem_uninstall_remove_data` | `false` | Also delete `/slovo/xprem` on uninstall |
 
 The env file rendered at `/slovo/xprem/env` (mode `0640`) contains the exact upstream variable set:
@@ -133,7 +138,7 @@ ansible-playbook -i inventory/hosts setup.yml \
   --tags=setup-slovo-xprem,start --ask-vault-pass
 ```
 
-The role fails before touching the host if `slovo_xprem_identifier`, `slovo_xprem_base_path`, `slovo_xprem_version`, `slovo_xprem_admin_email` or (with Traefik labels on) `slovo_xprem_hostname` is empty, and fails at template time if a `secret_slovo_xprem_*` variable is undefined.
+The role fails before touching the host if `slovo_xprem_identifier`, `slovo_xprem_base_path`, `slovo_xprem_version`, `slovo_xprem_admin_email`, `slovo_xprem_postgres_db`, `slovo_xprem_postgres_user` or (with Traefik labels on) `slovo_xprem_hostname` is empty, and fails at template time if a `secret_slovo_xprem_*` variable is undefined.
 
 ## Post-apply verification
 
