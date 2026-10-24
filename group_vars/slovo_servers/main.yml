@@ -84,7 +84,9 @@ postgres_managed_databases_auto: |
     ([{'name': slovo_backend_postgres_db, 'username': slovo_backend_postgres_user, 'password': slovo_backend_postgres_password}])
   }}
 
-# Extra databases owned by this playbook (created on postgres startup).
+# Extra databases owned by this playbook, created by the postgres role's
+# managed-databases tasks (they run under `setup-postgres`/`install-postgres`,
+# or the umbrella `setup-all`/`install-all` — NOT under `setup-slovo-xprem`).
 # The xprem OTA server runs in control-plane mode and stores apps, branches,
 # channels, its audit trail and the sealed per-app signing keys here.
 # `postgres_managed_databases` feeds `postgres_backup_databases_auto`, so the

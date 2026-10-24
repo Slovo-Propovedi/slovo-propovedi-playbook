@@ -111,7 +111,7 @@ The env file rendered at `/slovo/xprem/env` (mode `0640`) contains the exact ups
 
 ```
 BASE_URL=https://<hostname>
-DB_URL=postgres://xprem:<password>@slovo-postgres:5432/xprem
+DB_URL=postgres://xprem:<password>@slovo-postgres:5432/xprem?sslmode=disable
 DB_KEYS_MASTER_KEY_B64=<master key>
 JWT_SECRET=<jwt secret>
 STORAGE_MODE=local
@@ -126,17 +126,26 @@ If the first apply logs `unknown environment variable` warnings, compare this li
 
 ## First apply
 
+The `xprem` database and role are created by the postgres role's managed-databases tasks, which run **only under the postgres tags** (`setup-postgres` / `install-postgres`, or the umbrella `setup-all` / `install-all`). The xprem tag alone does not provision them.
+
+Full deployment, recommended on a fresh host (also installs Docker, PostgreSQL, Traefik and the other services):
+
 ```bash
 # From the playbook repo root
-just setup-slovo-xprem --ask-vault-pass
+just setup-all --ask-vault-pass
 ```
 
-Raw equivalent (the `start` tag is required — the systemd service manager enables and starts the unit only under `start`):
+Minimal correct sequence on a host where Docker and PostgreSQL are already deployed and you are only adding xprem:
 
 ```bash
 ansible-playbook -i inventory/hosts setup.yml \
-  --tags=setup-slovo-xprem,start --ask-vault-pass
+  --tags=setup-postgres,setup-slovo-xprem,start --ask-vault-pass
 ```
+
+Both extra tags matter: without `setup-postgres` the managed-databases tasks are skipped, and `start` is what makes the systemd service manager enable and start the unit.
+
+> [!WARNING]
+> `just setup-slovo-xprem --ask-vault-pass` expands to `--tags=setup-slovo-xprem,start` and **never creates the database**. On a first apply the unit starts against a nonexistent database and enters a restart loop; `journalctl -u slovo-xprem.service` shows `FATAL: database "xprem" does not exist (SQLSTATE 3D000)`. Use it only after the database already exists (created by an earlier `setup-all`/`setup-postgres` run).
 
 The role fails before touching the host if `slovo_xprem_identifier`, `slovo_xprem_base_path`, `slovo_xprem_version`, `slovo_xprem_admin_email`, `slovo_xprem_postgres_db`, `slovo_xprem_postgres_user` or (with Traefik labels on) `slovo_xprem_hostname` is empty, and fails at template time if a `secret_slovo_xprem_*` variable is undefined.
 
@@ -224,7 +233,8 @@ The `xprem` database is part of the daily pg_dump rotation automatically (see [C
 | Traefik returns 502 | xprem is not running, or the `traefik.docker.network` label points at the wrong network | `journalctl -u slovo-xprem.service -n 100`; the label must name the shared Traefik network (`traefik`), which is what `group_vars` wires |
 | Container restart loop, `JWT_SECRET not set` or `Neither AWSSM_DB_KEYS_MASTER_KEY_SECRET_ID nor DB_KEYS_MASTER_KEY_B64 is set` | A `secret_slovo_xprem_*` variable is undefined (the env file rendered empty) | Check the vault vars and re-run `just setup-slovo-xprem --ask-vault-pass` |
 | `Invalid BASE_URL` in the journal | `slovo_xprem_hostname` is empty while Traefik labels are disabled | Set the hostname — `BASE_URL` is always built from it |
-| Database connection errors / SSL negotiation failure | PostgreSQL in this stack does not serve TLS; the upstream quickstart DSN explicitly disables SSL | Append `?sslmode=disable` to `DB_URL` in `roles/custom/slovo-xprem/templates/env.j2`, re-run, and open a PR upstreaming the change |
+| Database connection errors (`FATAL: database ... does not exist`) | The `xprem` database was never provisioned — the postgres tags did not run | Run `just setup-all --ask-vault-pass` or add `setup-postgres` to the tags (see [First apply](#first-apply)), then restart `slovo-xprem` |
+| Database SSL negotiation failure | PostgreSQL in this stack serves no TLS; the role already pins `?sslmode=disable` in `DB_URL` | Verify the rendered `/slovo/xprem/env` still carries `?sslmode=disable`; if it does not, re-run a setup that includes `setup-slovo-xprem` so the env file is re-rendered |
 | Journal shows `unknown environment variable` warnings | The pinned image renamed or dropped a variable | Compare the rendered env file with the docs for that tag and adjust `env.j2` |
 | `docker logs slovo-xprem` prints nothing | Expected: the unit uses `--log-driver=none` | Use `journalctl -u slovo-xprem.service` (container output is attached to the unit) |
 | Dashboard login rejected | `ADMIN_PASSWORD` was only used to seed the first account | Use the password stored in PostgreSQL; change it in the dashboard. Reset requires a DB intervention |
@@ -235,3 +245,4 @@ The `xprem` database is part of the daily pg_dump rotation automatically (see [C
 - The role exposes xprem at `/`; `slovo_xprem_path_prefix` only affects the Traefik rule and is not propagated into `BASE_URL`. Leave it at `/`.
 - Traffic is served directly by the server (no CDN), capped at 256 MB of memory.
 - `TRUST_PROXY_HEADERS` is not set, so xprem sees the Traefik container's IP. API-token IP allowlists would therefore allow/deny the proxy, not the real client.
+- Uninstalling (`slovo_xprem_enabled: false`) stops and removes the unit and container, and deletes `/slovo/xprem` only when `slovo_xprem_uninstall_remove_data: true`. The `xprem` database and role are left untouched in PostgreSQL on purpose — data safety, since the sealed signing keys are unrecoverable without a dump — and the `slovo-xprem` Docker network also stays, matching the other roles. Drop the database/role manually through `psql` if it is truly no longer needed.
