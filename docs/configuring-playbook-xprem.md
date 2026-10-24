@@ -201,6 +201,9 @@ curl -i https://ota.slovo-propovedi.ru/manifest \
 
 Open `https://ota.slovo-propovedi.ru/dashboard` and sign in with `slovo_xprem_admin_email` / `secret_slovo_xprem_admin_password`.
 
+> [!NOTE]
+> The vault credentials are the live ones only when the **first successful boot** seeded the admin from this env. The seed is one-time: if the container crash-looped with an earlier `ADMIN_PASSWORD` (e.g. a non-compliant one), PostgreSQL may hold a different value. Verify with the probe in [Troubleshooting](#troubleshooting) before rotating anything.
+
 1. **Create the app**: apps → create → name `slovo-propovedi-mobile`. Open **App Info** and copy the **App ID** (UUID). It becomes the `expo-app-id` header and `npx eoas init` project id.
 2. **Code signing certificate**: either
    - download the dashboard-generated pair's certificate — **App Info → Download certificate** — and save it as `certs/certificate.pem` in the mobile repo (the private key stays sealed in PostgreSQL, encrypted with `DB_KEYS_MASTER_KEY_B64`); or
@@ -249,12 +252,27 @@ The `xprem` database is part of the daily pg_dump rotation automatically (see [C
 | Database SSL negotiation failure | PostgreSQL in this stack serves no TLS; the role already pins `?sslmode=disable` in `DB_URL` | Verify the rendered `/slovo/xprem/env` still carries `?sslmode=disable`; if it does not, re-run a setup that includes `setup-slovo-xprem` so the env file is re-rendered |
 | Journal shows `unknown environment variable` warnings | The pinned image renamed or dropped a variable | Compare the rendered env file with the docs for that tag and adjust `env.j2` |
 | `docker logs slovo-xprem` prints nothing | Expected: the unit uses `--log-driver=none` | Use `journalctl -u slovo-xprem.service` (container output is attached to the unit) |
-| Dashboard login rejected | `ADMIN_PASSWORD` was only used to seed the first account | Use the password stored in PostgreSQL; change it in the dashboard. Reset requires a DB intervention |
+| Dashboard login rejected (`401 Invalid email or password`) | The live password is the one seeded on the first successful boot, which may differ from the current vault value | Verify with the form-encoded probe below; `200` means the saved client-side value is stale, `401` means PostgreSQL holds an older seed value (reset = DB intervention) |
 | Manifest returns no update | Branch/channel mismatch or wrong runtime version | Check that a channel named `production` points at the `production` branch and that `expo-runtime-version` matches the build |
+
+### Checking which dashboard password is live
+
+The dashboard form posts `application/x-www-form-urlencoded` (a JSON body answers `400 Email is empty`). Probe from the server so the secret never enters local shell history and is never printed:
+
+```bash
+ADMIN_EMAIL=$(grep -m1 '^ADMIN_EMAIL=' /slovo/xprem/env | cut -d= -f2-)
+ADMIN_PASSWORD=$(grep -m1 '^ADMIN_PASSWORD=' /slovo/xprem/env | cut -d= -f2-)
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://ota.slovo-propovedi.ru/auth/login \
+  --data-urlencode "email=$ADMIN_EMAIL" --data-urlencode "password=$ADMIN_PASSWORD"
+```
+
+- `200` — the env/vault value is the live password; a `401` in the browser means the client (browser or password manager) has a stale value.
+- `401` — PostgreSQL holds the value from the first successful seed, which differs from the current vault. `ADMIN_PASSWORD` is not re-synced on boot, so aligning them is a DB intervention.
 
 ## Limitations
 
 - The role exposes xprem at `/`; `slovo_xprem_path_prefix` only affects the Traefik rule and is not propagated into `BASE_URL`. Leave it at `/`.
 - Traffic is served directly by the server (no CDN), capped at 256 MB of memory.
 - `TRUST_PROXY_HEADERS` is not set, so xprem sees the Traefik container's IP. API-token IP allowlists would therefore allow/deny the proxy, not the real client.
+- Dashboard font assets (e.g. `/dashboard/assets/inter-latin-wght-normal-*.woff2`) are answered with the SPA fallback (`text/html`, starts with `<!doctype html>`) even though the files exist in the image and are valid WOFF2. The browser logs `invalid sfntVersion` and falls back to a system font — cosmetic upstream serving bug, not a broken deploy.
 - Uninstalling (`slovo_xprem_enabled: false`) stops and removes the unit and container, and deletes `/slovo/xprem` only when `slovo_xprem_uninstall_remove_data: true`. The `xprem` database and role are left untouched in PostgreSQL on purpose — data safety, since the sealed signing keys are unrecoverable without a dump — and the `slovo-xprem` Docker network also stays, matching the other roles. Drop the database/role manually through `psql` if it is truly no longer needed.
