@@ -21,8 +21,9 @@ slovo_xprem_identifier: "slovo-xprem"
 slovo_xprem_version: "v3.2.6"
 
 # The hostname at which xprem is served (e.g. ota.example.com).
-# This is also the server's BASE_URL, and therefore the `updates.url` baked
-# into the mobile app: devices fetch `https://<hostname>/manifest`.
+# This is also the server's BASE_URL. The mobile app's `updates.url` is
+# `https://<hostname>/manifest` — the full manifest path, which expo-updates
+# fetches verbatim (it appends nothing).
 slovo_xprem_hostname: ''
 
 # The path at which xprem is served.

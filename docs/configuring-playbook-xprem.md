@@ -49,7 +49,7 @@ slovo_xprem_postgres_db: xprem
 slovo_xprem_postgres_user: xprem
 ```
 
-`slovo_xprem_hostname` is also the server's `BASE_URL`, and therefore the `updates.url` baked into the mobile app. Changing it later requires a new native build of the app.
+`slovo_xprem_hostname` is also the server's `BASE_URL`. The mobile app's `updates.url` is `<BASE_URL>/manifest` — the full manifest path, which `expo-updates` fetches verbatim. Changing it later requires a new native build of the app.
 
 ## Required vault secrets
 
@@ -94,7 +94,7 @@ Most values are wired in `group_vars/slovo_servers/main.yml`; override them only
 | `slovo_xprem_enabled` | `true` | Install (or uninstall, when `false`) the service |
 | `slovo_xprem_identifier` | `slovo-xprem` | Container and systemd unit name |
 | `slovo_xprem_version` | `v3.2.6` | Pinned image tag |
-| `slovo_xprem_hostname` | `''` | Public hostname; also `BASE_URL` / app `updates.url` |
+| `slovo_xprem_hostname` | `''` | Public hostname; also `BASE_URL` (the app's `updates.url` is `<BASE_URL>/manifest`) |
 | `slovo_xprem_path_prefix` | `/` | Traefik path prefix (leave at `/`; see limitations) |
 | `slovo_xprem_base_path` | `/slovo/xprem` | Config dir (`env`, `labels`) |
 | `slovo_xprem_data_path` | `/slovo/xprem/data` | Local update storage, mounted at `/data` |
@@ -182,7 +182,7 @@ Expect `⚙️  [CONTROL] Initializing Control Plane (DB Mode)..` and a successf
 
 ### Protocol smoke test
 
-The device protocol endpoint is `https://<hostname>/manifest` (the app's `updates.url` is the bare host; `expo-updates` appends `/manifest`). A control-plane server resolves the app from the `expo-app-id` header, so include it:
+The device protocol endpoint is `https://<hostname>/manifest`, and that is exactly the app's `updates.url`: `expo-updates` fetches `updates.url` verbatim and appends nothing, so the app config must carry the full manifest path. A control-plane server resolves the app from the `expo-app-id` header, so include it:
 
 ```bash
 curl -i https://ota.slovo-propovedi.ru/manifest \
@@ -213,7 +213,7 @@ Open `https://ota.slovo-propovedi.ru/dashboard` and sign in with `slovo_xprem_ad
 3. **Publish the first update / create the branch**: from the mobile repo, publish to `production` (see CI below) or create the branch in the dashboard.
 4. **Create the channel**: **Channels → Create Channel**, name it `production`, attach it to the `production` branch. A fresh channel serves exactly that branch.
 5. **Create an API token for CI**: **API tokens → create**, copy it immediately (it is shown once). xprem tokens are app-scoped and are used as `EOO_TOKEN` by the publish CLI.
-6. **`npx eoas init`** in the mobile repo: app UUID, server URL `https://ota.slovo-propovedi.ru`, and "yes, I already have certificates". It adds `expo-channel-name`, `expo-app-id` and `xprem-branch` to `updates.requestHeaders`.
+6. **`npx eoas init`** in the mobile repo: app UUID, server URL `https://ota.slovo-propovedi.ru`, and "yes, I already have certificates". It adds `expo-channel-name`, `expo-app-id` and `xprem-branch` to `updates.requestHeaders`. Whatever the wizard writes, the resulting `updates.url` must be the full manifest path `https://ota.slovo-propovedi.ru/manifest` — a bare host makes the app request `/` and get a 404.
 7. **Rebuild the native app**: `updates.url`, the channel and the certificate are baked in at build time. Existing binaries keep pointing at the old server.
 
 ## Publish from CI (Forgejo)
