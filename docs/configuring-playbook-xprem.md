@@ -269,6 +269,41 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://ota.slovo-propovedi.ru/
 - `200` — the env/vault value is the live password; a `401` in the browser means the client (browser or password manager) has a stale value.
 - `401` — PostgreSQL holds the value from the first successful seed, which differs from the current vault. `ADMIN_PASSWORD` is not re-synced on boot, so aligning them is a DB intervention.
 
+## Reclaiming storage (manual cleanup)
+
+xprem v3.2.6 has no retention policy and no per-update deletion — upstream issues [#284](https://github.com/mercuretechnologies/xprem/issues/284) and [#263](https://github.com/mercuretechnologies/xprem/issues/263) are open, the `eoas` CLI has no delete/purge command, and the content-addressed asset pool is never garbage-collected. That is why the playbook does not automate cleanup: measured usage on this VPS is negligible (~4 KB), so do nothing until `du -sh /slovo/xprem/data` shows real growth.
+
+Storage layout: `{appId}/cas/` is the content-addressed asset pool (the bulk of the bytes), `{appId}/{branch}/{runtimeVersion}/{updateId}/` holds per-update metadata and manifests, and `{appId}/bsdiff/{branch}/` holds bundle-diff patches. `APP_ID` is the app UUID from **App Info** and the dashboard URL (`/dashboard/apps/<APP_ID>`); `GET /api/apps/{APP_ID}/branches` lists the branches.
+
+### 1. Branch delete → recreate (supported, partial)
+
+Frees per-update folders and bsdiff patches, but **not** `cas/`. Requires a dashboard session JWT: the publish API key (`EOO_TOKEN`) is rejected with `403` on delete routes.
+
+```bash
+ADMIN_EMAIL=$(grep -m1 '^ADMIN_EMAIL=' /slovo/xprem/env | cut -d= -f2-)
+read -rsp 'dashboard password: ' XPREM_PASSWORD; echo
+JWT=$(curl -fsS -X POST https://ota.slovo-propovedi.ru/auth/login \
+  --data-urlencode "email=$ADMIN_EMAIL" --data-urlencode "password=$XPREM_PASSWORD" |
+  jq -r '.token // .accessToken // .access_token')
+
+curl -i -X DELETE "https://ota.slovo-propovedi.ru/api/apps/$APP_ID/branches/production" \
+  -H "Authorization: Bearer $JWT"
+```
+
+The delete is refused with `409` while a channel is mapped to the branch or a rollout is active. File removal is asynchronous and best-effort — confirm `/slovo/xprem/data/$APP_ID/production/` is gone. Then recreate the branch with the same name (dashboard → **Branches**, or the next `npx eoas publish --branch production`); the channel resolves the branch by name once it exists again, so JS-only publishes keep working.
+
+### 2. Full CAS wipe (unsupported, maximum effect)
+
+⚠️ Not supported upstream. The files and the `blobs` table must be cleaned together: the table is the publish-dedup ledger, so deleting `cas/` without its rows breaks future publishes with missing-asset `404`s. Run it only in a maintenance window, right after a native release (old bundles are dead weight then), with no publishes in flight.
+
+```bash
+systemctl stop slovo-xprem.service
+rm -rf "/slovo/xprem/data/$APP_ID/cas"
+docker exec -i slovo-postgres psql -U slovo -d xprem \
+  -c "DELETE FROM blobs WHERE app_id = '$APP_ID';"
+systemctl start slovo-xprem.service
+```
+
 ## Limitations
 
 - The role exposes xprem at `/`; `slovo_xprem_path_prefix` only affects the Traefik rule and is not propagated into `BASE_URL`. Leave it at `/`.
