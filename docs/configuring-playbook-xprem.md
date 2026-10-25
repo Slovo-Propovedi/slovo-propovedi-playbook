@@ -304,6 +304,10 @@ docker exec -i slovo-postgres psql -U slovo -d xprem \
 systemctl start slovo-xprem.service
 ```
 
+### 3. Automated purge from CI
+
+The mobile repo ships `.forgejo/workflows/xprem-cleanup.yml` («Purge outdated OTA storage (xprem)») — a manual `workflow_dispatch` run that automates steps 1 and, optionally, 2: it deletes the `production` channel and branch, recreates them, and immediately re-publishes the current JS bundle (`eoas publish`), so outdated updates are gone while the current bundle stays live. It refuses to run unless HEAD is js-only over the latest release tag (the state right after a native release) and requires the Forgejo secrets `XPREM_ADMIN_EMAIL` / `XPREM_ADMIN_PASSWORD` for a dashboard session — the publish API key is rejected with `403` on delete routes. The opt-in `deep` input additionally wipes `cas/` and the `blobs` ledger over SSH in one session, using the same container-local `psql` path shown above. Keep this runbook as the manual fallback.
+
 ## Limitations
 
 - The role exposes xprem at `/`; `slovo_xprem_path_prefix` only affects the Traefik rule and is not propagated into `BASE_URL`. Leave it at `/`.
