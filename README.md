@@ -4,7 +4,7 @@ Ansible playbook for deploying the slovo-propovedi infrastructure services (Post
 
 This playbook follows the [matrix-docker-ansible-deploy](https://github.com/spantaleev/matrix-docker-ansible-deploy) pattern: every service runs in a Docker container managed by systemd, with Traefik as the reverse proxy in front of everything.
 
-It provisions **shared infrastructure only**. The applications (backend API, admin SPA, docs site, landing site) deploy themselves from their own repositories via `scripts/vps-deploy.sh` on a `v*` tag, and expect this playbook to have run against the host first. See [Deploying the applications](docs/deploying-apps.md).
+It provisions **shared infrastructure only**. The applications (backend API, admin SPA, docs site, landing site, mobile web app) deploy themselves from their own repositories via `scripts/vps-deploy.sh` on a `v*` tag, and expect this playbook to have run against the host first. See [Deploying the applications](docs/deploying-apps.md).
 
 ## Features
 
@@ -84,7 +84,7 @@ It provisions **shared infrastructure only**. The applications (backend API, adm
 - [Configuring Traefik](docs/configuring-traefik.md)
 - [Configuring xprem](docs/configuring-playbook-xprem.md) — self-hosted Expo OTA updates
 - [Configuring backups](docs/configuring-backups.md) — PostgreSQL dumps + NAS pull
-- [Deploying the applications](docs/deploying-apps.md) — how the app repos deploy on top of this playbook
+- [Deploying the applications](docs/deploying-apps.md) — how the app repos deploy on top of this playbook, incl. the registry of all Forgejo variables and secrets
 - [VPS migration runbook — August 2026](docs/migration-2026-08-vps.md)
 
 ## License

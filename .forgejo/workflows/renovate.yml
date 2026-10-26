@@ -45,6 +45,8 @@ jobs:
           RENOVATE_AUTODISCOVER: "false"
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           RENOVATE_ONBOARDING: "false"
-          RENOVATE_GIT_AUTHOR: "Renovate Bot <renovate@example.com>"
+          # Org variable shared by every Slovo_Propovedi repository (see
+          # docs/deploying-apps.md → registry).
+          RENOVATE_GIT_AUTHOR: ${{ vars.RENOVATE_GIT_AUTHOR }}
           GITHUB_COM_TOKEN: ${{ secrets.RENOVATE_GITHUB_COM_TOKEN }}
           LOG_LEVEL: info
