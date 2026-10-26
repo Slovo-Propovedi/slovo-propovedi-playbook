@@ -91,14 +91,22 @@ actually reads them.
 
 | Secret | Scope | Value | Used by |
 | --- | --- | --- | --- |
-| `VPS_HOST`, `VPS_SSH_USER`, `VPS_SSH_PRIVATE_KEY` | repo (each app holds its own copy) | SSH target and key for the deploy | backend, docs, landing, mobile |
-| `VPS_SSH_KNOWN_HOSTS` | org or repo, next to the other `VPS_*` | pinned VPS host key: `ssh-keyscan <VPS_HOST> 2>/dev/null` output, verified against `ssh-keygen -lf /etc/ssh/ssh_host_*_key.pub` on the server; update after a VPS reinstall | backend, docs, landing, mobile |
-| `MINIO_ACCESS_KEY` | org | MinIO root user — the one vault value an app needs | backend |
+| `VPS_HOST`, `VPS_SSH_USER`, `VPS_SSH_PRIVATE_KEY` | org | SSH target and key for the deploy | backend, docs, landing, mobile |
+| `VPS_SSH_KNOWN_HOSTS` | org | pinned VPS host key: `ssh-keyscan <VPS_HOST> 2>/dev/null` output, verified against `ssh-keygen -lf /etc/ssh/ssh_host_*_key.pub` on the server; update after a VPS reinstall | backend, docs, landing, mobile |
+| `MINIO_ACCESS_KEY` | org today; only the backend reads it, so repo level would be tighter | MinIO root user — the one vault value an app needs | backend |
 | `BACKEND_JWT_SECRET`, `BACKEND_JWT_REFRESH_SECRET`, `BACKEND_POSTGRES_PASSWORD`, `BACKEND_MINIO_SECRET_KEY` | repo | backend runtime secrets | backend |
 | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | repo | release signing key | mobile |
-| `XPREM_ADMIN_EMAIL`, `XPREM_ADMIN_PASSWORD`, `XPREM_EOO_TOKEN` | repo | xprem OTA server access | mobile |
+| `XPREM_EOO_TOKEN` | repo | xprem OTA publish token | mobile |
+| `XPREM_ADMIN_EMAIL`, `XPREM_ADMIN_PASSWORD` | repo (optional) | xprem dashboard login for the cleanup workflow; without them `xprem-cleanup.yml` only warns and skips | mobile |
 | `MIRROR_GITHUB_TOKEN`, `MIRROR_CODEBERG_TOKEN` | repo | write tokens for the release mirrors | mobile |
 | `RENOVATE_TOKEN`, `RENOVATE_GITHUB_COM_TOKEN` | org | Renovate bot access | all repos |
+
+Why the single-consumer secrets stay at **repo** level: an org secret is
+handed to the workflows of *every* repository in the org. A compromised
+dependency running in, say, the docs repo's CI (Renovate branches run with
+secrets) could then read the Android signing key — enough to ship an "update"
+Android accepts as genuine — or the backend's database password. Only values
+two or more repositories need belong at org level.
 
 Not used any more (safe to delete if still present): `MIRROR_GITHUB_LATEST_RELEASE_URL`,
 `MIRROR_GITHUB_SCREENSHOTS_RAW_URL` (landing derives both from
