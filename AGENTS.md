@@ -20,7 +20,7 @@ Every non-trivial task runs through a workflow BEFORE implementation. Workflow s
 
 | Situation | Workflow | How |
 |-----------|----------|-----|
-| New service/role, infra topology change, vague requirements | Spec-Driven Development | `/speckit.specify` → `/speckit.clarify` → `/speckit.plan` → `/speckit.tasks` → `/speckit.implement` (`/speckit.constitution` once per repo) |
+| New service/role, infra topology change, vague requirements | Spec-Driven Development | `/speckit.specify` → `/speckit.clarify` → `/speckit.plan` → `/speckit.tasks` → `/speckit.taskstoissues` (mirror tasks to the Forgejo board; needs `FORGEJO_TOKEN`) → `/speckit.implement` (`/speckit.constitution` once per repo) |
 | Clear multi-step change | Plan → implement | `plan-implement` skill |
 | Any broken task/playbook, failed check, unexpected behavior | Debug first | `systematic-debugging` skill |
 | Any change to roles/templates/vars (inside any workflow) | Verification-first TDD | `tdd` skill, Mode B: run `just lint` + `just dry-run` BEFORE and AFTER the change; the "failing check" is the lint/syntax failure or the documented gap |
