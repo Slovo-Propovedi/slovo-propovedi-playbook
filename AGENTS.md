@@ -24,6 +24,8 @@ Every non-trivial task runs through a workflow BEFORE implementation. Workflow s
 | Clear multi-step change | Plan → implement | `plan-implement` skill |
 | Any broken task/playbook, failed check, unexpected behavior | Debug first | `systematic-debugging` skill |
 | Any change to roles/templates/vars (inside any workflow) | Verification-first TDD | `tdd` skill, Mode B: run `just lint` + `just dry-run` BEFORE and AFTER the change; the "failing check" is the lint/syntax failure or the documented gap |
+| Pure refactor of roles/templates (no behavior change) | Verification-first TDD | `tdd` skill Mode B — `just lint` + `just dry-run` stay green |
+| Docs-only change | Verification-first | `tdd` skill Mode B |
 | Always, on every task | Minimal diff | `ponytail` skill |
 | Before claiming ANY task done | Done-gate | `verification-before-completion` skill |
 
@@ -33,10 +35,12 @@ Rules:
 2. No playbook change without a failing check first (tdd Mode B — this repo has no unit-test framework; `yamllint`/`ansible-lint`/`--syntax-check` are the checks).
 3. Specs and task lists are repo artifacts under `specs/<NNN-slug>/`; commit them with the change.
 4. Opt-out only on explicit user request.
-5. Verification commands: `just lint`, `just dry-run`.
+5. Verification commands: `just lint`, `just dry-run`, `bash .opencode/tools/check-skills-sync.sh`.
 6. Never commit `inventory/` (it is a separate nested git repo, gitignored here — contains server addresses/secrets) or `roles/galaxy/` (fetched via `just roles`).
 
-The `specify` CLI is NOT required at runtime — it is a scaffolder used only to (re)generate `.specify/` templates and the speckit commands.
+The `specify` CLI is NOT required at runtime — it is a scaffolder used only to (re)generate `.specify/` templates and the speckit commands. Contributors need only OpenCode/Claude Code + bash.
+
+**Template maintenance (maintainer-only):** refreshing the spec-kit scaffolding (`.specify/` + `speckit.*` commands) to a new spec-kit release is a periodic task for the designated template maintainer — never a routine contributor or agent task. The canonical copy of the workflow skills, speckit commands and this scaffolding lives in **slovo-propovedi-mobile**: make changes there first, verify with `bash .opencode/tools/check-skills-sync.sh`, then propagate copies to the other repos and re-run the check in each. When editing a workflow skill, edit the mobile copy first and re-propagate.
 
 ## Documentation
 Operational guides live in `docs/` (configuring-playbook, configuring-traefik, configuring-playbook-xprem, configuring-backups, deploying-apps, migration-2026-08-vps). Update the affected doc in the same commit when changing what it describes.
