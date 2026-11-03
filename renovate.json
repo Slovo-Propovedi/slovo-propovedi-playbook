@@ -18,10 +18,10 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "MinIO server image version (slovo-minio role).",
+      "description": "MinIO server image version (slovo-minio role; pgsty/silo fork on Docker Hub).",
       "managerFilePatterns": ["/^roles/custom/slovo-minio/defaults/main\\.yml$/"],
       "matchStrings": ["slovo_minio_version:\\s*\"(?<currentValue>[^\"]+)\""],
-      "depNameTemplate": "minio/minio",
+      "depNameTemplate": "pgsty/silo",
       "datasourceTemplate": "docker",
       "versioningTemplate": "regex:^RELEASE\\.(?<major>\\d{4})-(?<minor>\\d{2})-(?<patch>\\d{2})T(?<build>\\d{2}-\\d{2}-\\d{2})Z$"
     },
