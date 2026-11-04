@@ -53,18 +53,13 @@ these values.
 
 ### Org variables
 
-> **Removed (former) org variables — do not recreate.** `REPOSITORY_URL`
-> (primary Forgejo origin, its host *is* the container registry) and
-> `REPOSITORY_ORG` (`Slovo_Propovedi` on the primary Forgejo) were deleted from
-> org settings: Forgejo Actions runner provides GitHub-compatible context —
-> `GITHUB_SERVER_URL` / `github.server_url` (the Forgejo origin) and
-> `GITHUB_REPOSITORY` / `github.repository` (`Slovo_Propovedi/<repo>`,
-> `github.repository_owner`) — at no configuration cost. Every workflow derives
-> the registry host (`${GITHUB_SERVER_URL#*://}`), the image ref and the
-> repository coordinates from those, and all the downstream contract names
-> (`REPOSITORY_URL`/`REPOSITORY_ORG` entries in `/etc/default/slovo-landing`,
-> `vps-deploy.sh` REMOTE_ENV keys, `EXPO_PUBLIC_*` build args, Dockerfile ARGs)
-> keep their names — only the value's source changed.
+Every workflow derives the registry host (`${GITHUB_SERVER_URL#*://}`), the
+image ref and the repository coordinates from the Forgejo Actions runner
+context — `GITHUB_SERVER_URL` / `github.server_url` (the Forgejo origin) and
+`GITHUB_REPOSITORY` / `github.repository` (`Slovo_Propovedi/<repo>`,
+`github.repository_owner`). The variables below cover hostnames, mirrors,
+signing and shared infra; mirror values are ordinary org variables shared by
+landing and mobile.
 
 | Variable | Value / source | Used by |
 | --- | --- | --- |
@@ -138,9 +133,8 @@ VPS any more.
   hardcoded repo name is involved. The `{image}` path may be nested;
   matching is case-insensitive, so the package auto-links to the repo's
   *Packages* tab. Workflows pass the registry host to it as the `REPOSITORY_URL`
-  step env — now sourced from the runner's `GITHUB_SERVER_URL`
-  (`${{ github.server_url }}`) instead of a Forgejo org variable — and compose
-  the image ref as
+  step env, sourced from the runner's `GITHUB_SERVER_URL`
+  (`${{ github.server_url }}`), and compose the image ref as
   `REGISTRY_IMAGE="${REPOSITORY_URL#*://}/${GITHUB_REPOSITORY,,}"`:
 
   | App | Image |
@@ -154,7 +148,7 @@ VPS any more.
   URL: the Dockerfiles declare `ARG OCI_IMAGE_SOURCE`, and every build step
   injects the value via
   `--build-arg OCI_IMAGE_SOURCE="${REPOSITORY_URL}/${GITHUB_REPOSITORY}"`
-  (the `REPOSITORY_URL` step env now sourced from the runner context —
+  (the `REPOSITORY_URL` step env sourced from the runner context —
   `GITHUB_SERVER_URL` / `github.server_url` — plus the standard Forgejo runner
   env `GITHUB_REPOSITORY`), i.e.
   `https://git.lightnode.ru/Slovo_Propovedi/<repo>`;
@@ -182,10 +176,7 @@ VPS any more.
   out after 90 days.
 
 
-Not used any more (safe to delete if still present): `REPOSITORY_URL`,
-`REPOSITORY_ORG` (workflows derive both from the runner's `GITHUB_SERVER_URL` /
-`GITHUB_REPOSITORY` / `github.repository_owner` — same names, runner context),
-`MIRROR_GITHUB_LATEST_RELEASE_URL`,
+Not used (safe to delete if still present): `MIRROR_GITHUB_LATEST_RELEASE_URL`,
 `MIRROR_GITHUB_SCREENSHOTS_RAW_URL` (landing derives both from
 `MIRROR_GITHUB_ORG` + `MOBILE_REPOSITORY_NAME`), `ACME_EMAIL`,
 `REPOSITORY_API_TOKEN`, `GITHUB_MIRROR_TOKEN` (the landing refresh reads the
