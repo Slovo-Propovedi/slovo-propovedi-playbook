@@ -197,7 +197,9 @@ edit that file manually — the workflow owns it.
   `docker-container` builder. The release workflows drive image builds
   through it over SSH (`DOCKER_HOST=ssh://… docker buildx build --push`),
   so the deploy scripts only verify it exists; its layer cache persists
-  between releases.
+  between releases. CI adopts the host builder `slovo-constrained` via
+  `docker buildx create` (idempotent, reuses the running container and its
+  cache).
 - The Traefik unit named by `TRAEFIK_SERVICE` active and the Docker network
   named by `TRAEFIK_NETWORK` present. The app scripts take all three names from
   the org variables above — rename something here, update the variable there.
