@@ -68,9 +68,8 @@ landing and mobile.
 | `WEB_HOSTNAME` | web-app hostname | backend (CORS), landing, mobile |
 | `DOCS_HOSTNAME` | docs (Swagger UI) hostname | backend, docs, landing |
 | `BACKEND_API_HOSTNAME` | API hostname | backend, docs, mobile |
-| `MIRROR_CODEBERG_URL` | `https://codeberg.org` (bare https origin) | landing, mobile |
-| `MIRROR_CODEBERG_ORG` | org on Codeberg, `Slovo_Propovedi` | landing, mobile |
-| `MIRROR_GITHUB_ORG` | org on GitHub, `Slovo-Propovedi` — **hyphen**, unlike Forgejo/Codeberg; GitHub hosts are fixed | landing, mobile |
+| `MIRROR_CODEBERG_URL` | `https://codeberg.org/Slovo_Propovedi` — the full mirror URL, owner as the only path segment | landing, mobile |
+| `MIRROR_GITHUB_URL` | `https://github.com/Slovo-Propovedi` — the full mirror URL, owner as the only path segment — **hyphen**, unlike Forgejo/Codeberg; GitHub hosts are fixed | landing, mobile |
 | `MOBILE_REPOSITORY_NAME` | `slovo-propovedi-mobile` | landing, mobile |
 | `APK_SIGNER_SHA256` | SHA-256 of the mobile release-key certificate (64 hex, as `apksigner verify --print-certs` prints it); comma-separated `old,new` during a key rotation. Public value | landing (refresh publishes only matching APKs), mobile (release refuses a differently signed APK) |
 | `TRAEFIK_NETWORK` | `traefik` (*playbook* `slovo_playbook_reverse_proxy_container_network`, `roles/custom/slovo-base/defaults/main.yml`) | backend, docs, landing, mobile |
@@ -178,9 +177,13 @@ VPS any more.
 
 Not used (safe to delete if still present): `MIRROR_GITHUB_LATEST_RELEASE_URL`,
 `MIRROR_GITHUB_SCREENSHOTS_RAW_URL` (landing derives both from
-`MIRROR_GITHUB_ORG` + `MOBILE_REPOSITORY_NAME`), `ACME_EMAIL`,
+`MIRROR_GITHUB_URL` + `MOBILE_REPOSITORY_NAME`), `ACME_EMAIL`,
 `REPOSITORY_API_TOKEN`, `GITHUB_MIRROR_TOKEN` (the landing refresh reads the
-public repositories anonymously).
+public repositories anonymously). Also delete the superseded
+`MIRROR_CODEBERG_ORG` and `MIRROR_GITHUB_ORG` once the last release before the
+owner-bearing-URL switch has gone through (mirror parse failures would break
+the mobile mirror — delete only after a mobile release mirrors successfully
+with the consolidated variables).
 
 The landing release workflow writes the repository coordinates and
 `APK_SIGNER_SHA256` into `/etc/default/slovo-landing` on every deploy; the
