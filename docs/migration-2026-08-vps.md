@@ -357,6 +357,9 @@ Org-level vars Forgejo (`Slovo_Propovedi` → Settings → Actions → Variables
   а не просто IP VPS. Release-workflow лендинга при каждом деплое
   автоматически перезаписывает `/etc/default/slovo-landing` на VPS из этих
   vars, так что ручная правка файла на VPS не нужна и будет перезатёрта.
+  Примечание: org-переменные `REPOSITORY_URL`/`REPOSITORY_ORG` удалены —
+  координаты деплоя раннер берёт из контекста
+  (`GITHUB_SERVER_URL`/`GITHUB_REPOSITORY`).
 - Internal vars (`POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`,
   `POSTGRES_DB`, `MINIO_ENDPOINT`, `MINIO_MAIN_PORT_IN`) — **не трогаем**:
   имена контейнеров и внутренние порты сохраняются при переезде.

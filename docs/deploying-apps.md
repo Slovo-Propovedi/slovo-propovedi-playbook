@@ -53,6 +53,19 @@ these values.
 
 ### Org variables
 
+> **Removed (former) org variables — do not recreate.** `REPOSITORY_URL`
+> (primary Forgejo origin, its host *is* the container registry) and
+> `REPOSITORY_ORG` (`Slovo_Propovedi` on the primary Forgejo) were deleted from
+> org settings: Forgejo Actions runner provides GitHub-compatible context —
+> `GITHUB_SERVER_URL` / `github.server_url` (the Forgejo origin) and
+> `GITHUB_REPOSITORY` / `github.repository` (`Slovo_Propovedi/<repo>`,
+> `github.repository_owner`) — at no configuration cost. Every workflow derives
+> the registry host (`${GITHUB_SERVER_URL#*://}`), the image ref and the
+> repository coordinates from those, and all the downstream contract names
+> (`REPOSITORY_URL`/`REPOSITORY_ORG` entries in `/etc/default/slovo-landing`,
+> `vps-deploy.sh` REMOTE_ENV keys, `EXPO_PUBLIC_*` build args, Dockerfile ARGs)
+> keep their names — only the value's source changed.
+
 | Variable | Value / source | Used by |
 | --- | --- | --- |
 | `LANDING_HOSTNAME` | site apex hostname | backend (CORS), landing, mobile |
@@ -60,8 +73,6 @@ these values.
 | `WEB_HOSTNAME` | web-app hostname | backend (CORS), landing, mobile |
 | `DOCS_HOSTNAME` | docs (Swagger UI) hostname | backend, docs, landing |
 | `BACKEND_API_HOSTNAME` | API hostname | backend, docs, mobile |
-| `REPOSITORY_URL` | primary Forgejo origin, e.g. `https://git.lightnode.ru` (bare https origin, no path) | landing, mobile |
-| `REPOSITORY_ORG` | org on the primary Forgejo, `Slovo_Propovedi` | landing, mobile |
 | `MIRROR_CODEBERG_URL` | `https://codeberg.org` (bare https origin) | landing, mobile |
 | `MIRROR_CODEBERG_ORG` | org on Codeberg, `Slovo_Propovedi` | landing, mobile |
 | `MIRROR_GITHUB_ORG` | org on GitHub, `Slovo-Propovedi` — **hyphen**, unlike Forgejo/Codeberg; GitHub hosts are fixed | landing, mobile |
@@ -93,6 +104,7 @@ actually reads them.
 | --- | --- | --- | --- |
 | `VPS_HOST`, `VPS_SSH_USER`, `VPS_SSH_PRIVATE_KEY` | org | SSH target and key for the deploy | backend, docs, landing, mobile |
 | `VPS_SSH_KNOWN_HOSTS` | org | pinned VPS host key: `ssh-keyscan <VPS_HOST> 2>/dev/null` output, verified against `ssh-keygen -lf /etc/ssh/ssh_host_*_key.pub` on the server; update after a VPS reinstall | backend, docs, landing, mobile |
+| `PACKAGE_REGISTRY_TOKEN` | org | Forgejo PAT with the `write:package` scope — the only credential the release workflows need for the container registry (push; pulls are anonymous, see [Container registry](#container-registry)). Never printed by any workflow | backend, docs, landing, mobile |
 | `MINIO_ACCESS_KEY` | org today; only the backend reads it, so repo level would be tighter | MinIO root user — the one vault value an app needs | backend |
 | `BACKEND_JWT_SECRET`, `BACKEND_JWT_REFRESH_SECRET`, `BACKEND_POSTGRES_PASSWORD`, `BACKEND_MINIO_SECRET_KEY` | repo | backend runtime secrets | backend |
 | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | repo | release signing key | mobile |
@@ -108,7 +120,72 @@ secrets) could then read the Android signing key — enough to ship an "update"
 Android accepts as genuine — or the backend's database password. Only values
 two or more repositories need belong at org level.
 
-Not used any more (safe to delete if still present): `MIRROR_GITHUB_LATEST_RELEASE_URL`,
+### Container registry
+
+Each app release workflow builds its container image and pushes it to the
+Forgejo container registry served on the same instance host as the Forgejo
+origin itself (`GITHUB_SERVER_URL`, e.g. host `git.lightnode.ru`); the VPS
+deploy script then only `docker pull`s it — no source tree is shipped to the
+VPS any more.
+
+- **Naming.** (This section is about the Forgejo **container registry** — the
+  *Packages* feature serving `docker pull` / `docker push` — not the
+  variables/secrets table above, where "registry" is just a list of values.)
+  Images must be named
+  `{registry}/{owner}/{image}` where the `{owner}/{image}` part is the runner's
+  `GITHUB_REPOSITORY` env (`Slovo_Propovedi/<repo>`) **lowercased whole**
+  (image names may not contain uppercase) — no forgejo org variable and no
+  hardcoded repo name is involved. The `{image}` path may be nested;
+  matching is case-insensitive, so the package auto-links to the repo's
+  *Packages* tab. Workflows pass the registry host to it as the `REPOSITORY_URL`
+  step env — now sourced from the runner's `GITHUB_SERVER_URL`
+  (`${{ github.server_url }}`) instead of a Forgejo org variable — and compose
+  the image ref as
+  `REGISTRY_IMAGE="${REPOSITORY_URL#*://}/${GITHUB_REPOSITORY,,}"`:
+
+  | App | Image |
+  | --- | --- |
+  | backend | `git.lightnode.ru/slovo_propovedi/slovo-propovedi-backend` |
+  | docs | `git.lightnode.ru/slovo_propovedi/slovo-propovedi-docs` |
+  | landing | `git.lightnode.ru/slovo_propovedi/slovo-propovedi-landing` |
+  | mobile web | `git.lightnode.ru/slovo_propovedi/slovo-propovedi-mobile/web` |
+  Belt-and-suspenders: every `Dockerfile` also carries
+  `LABEL org.opencontainers.image.source=$OCI_IMAGE_SOURCE` — no hardcoded
+  URL: the Dockerfiles declare `ARG OCI_IMAGE_SOURCE`, and every build step
+  injects the value via
+  `--build-arg OCI_IMAGE_SOURCE="${REPOSITORY_URL}/${GITHUB_REPOSITORY}"`
+  (the `REPOSITORY_URL` step env now sourced from the runner context —
+  `GITHUB_SERVER_URL` / `github.server_url` — plus the standard Forgejo runner
+  env `GITHUB_REPOSITORY`), i.e.
+  `https://git.lightnode.ru/Slovo_Propovedi/<repo>`;
+  when both the path and the label match, the label takes precedence.
+- **Auth.** Public org + public repos → **pulls are anonymous** (no registry
+  credentials exist on the VPS). Pushes require the org secret
+  `PACKAGE_REGISTRY_TOKEN` (scope `write:package`), used as
+  `docker login --password-stdin` inside the workflow's build step only.
+- **Tags.** Every release pushes two tags: `:v{VERSION}` (e.g. `:v1.2.3`, the
+  deploy / rollback anchor) and `:latest`. Old version tags are never deleted
+  by deploys — they are the rollback path.
+- **Cleanup.** The registry grows with every release, so an **org-level
+  cleanup rule** should be configured once in the Forgejo UI:
+  Organization → **Packages → management (toolbox) → Cleanup rules** → add a
+  rule of type Container with:
+
+  - Keep the most recent versions: **10**
+  - Keep versions matching pattern: **`v.*`** — protects versioned rollback
+    tags from the count limit (pattern matches the `v1.2.3` tags the release
+    workflows push)
+  - Remove versions older than (days): **90**
+
+  Rules run per package; with `latest` retagged on every release the "keep
+  10 + `v.*`" pair keeps every recent version tag while old release tags age
+  out after 90 days.
+
+
+Not used any more (safe to delete if still present): `REPOSITORY_URL`,
+`REPOSITORY_ORG` (workflows derive both from the runner's `GITHUB_SERVER_URL` /
+`GITHUB_REPOSITORY` / `github.repository_owner` — same names, runner context),
+`MIRROR_GITHUB_LATEST_RELEASE_URL`,
 `MIRROR_GITHUB_SCREENSHOTS_RAW_URL` (landing derives both from
 `MIRROR_GITHUB_ORG` + `MOBILE_REPOSITORY_NAME`), `ACME_EMAIL`,
 `REPOSITORY_API_TOKEN`, `GITHUB_MIRROR_TOKEN` (the landing refresh reads the
@@ -126,7 +203,10 @@ edit that file manually — the workflow owns it.
   their containers as this non-root uid/gid.
 - The buildx builder named by `BUILDX_BUILDER` (`slovo-constrained`, created by
   the `slovo-buildx` role) — a single shared, resource-capped
-  `docker-container` builder for on-VPS image builds.
+  `docker-container` builder. The release workflows drive image builds
+  through it over SSH (`DOCKER_HOST=ssh://… docker buildx build --push`),
+  so the deploy scripts only verify it exists; its layer cache persists
+  between releases.
 - The Traefik unit named by `TRAEFIK_SERVICE` active and the Docker network
   named by `TRAEFIK_NETWORK` present. The app scripts take all three names from
   the org variables above — rename something here, update the variable there.
