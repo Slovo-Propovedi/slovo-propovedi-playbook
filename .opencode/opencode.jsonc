@@ -1,0 +1,69 @@
+// THIN BASE config — never edited by tooling, never mutated at runtime.
+// Deliberately contains NO model wiring anywhere: no top-level "model" and no
+// per-agent "model" fields. Model wiring is applied in-session by the /profile
+// plugin (see plugins/profile/index.ts) from .opencode/profiles/*.json — the
+// only profile mechanism. Plain `opencode` reads this base and the plugin
+// applies the last chosen profile from its storage. See ../AI_PROFILES.md.
+//
+// V2-native: `agents` (plural) with `permissions` rule lists (ordered, last
+// matching rule wins; deny-first). coder/researcher/scribe/reviewer/build hold
+// their permissions in .opencode/agents/*.md frontmatter — NOT here.
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agents": {
+    "plan": {
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "subagent", "resource": "*", "effect": "allow" },
+        { "action": "worktree_*", "resource": "*", "effect": "allow" },
+      ],
+    },
+    "explore": {
+      "permissions": [
+        { "action": "edit", "resource": "*", "effect": "deny" },
+        { "action": "write", "resource": "*", "effect": "deny" },
+        { "action": "bash", "resource": "*", "effect": "deny" },
+        { "action": "plan_read", "resource": "*", "effect": "deny" },
+        { "action": "todoread", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "*", "effect": "deny" },
+        { "action": "shell", "resource": "ls *", "effect": "allow" },
+        { "action": "shell", "resource": "tree *", "effect": "allow" },
+        { "action": "shell", "resource": "pwd", "effect": "allow" },
+        { "action": "shell", "resource": "cat *", "effect": "allow" },
+        { "action": "shell", "resource": "head *", "effect": "allow" },
+        { "action": "shell", "resource": "tail *", "effect": "allow" },
+        { "action": "shell", "resource": "wc *", "effect": "allow" },
+        { "action": "shell", "resource": "file *", "effect": "allow" },
+        { "action": "shell", "resource": "stat *", "effect": "allow" },
+        { "action": "shell", "resource": "grep *", "effect": "allow" },
+        { "action": "shell", "resource": "rg *", "effect": "allow" },
+        { "action": "shell", "resource": "find *", "effect": "allow" },
+        { "action": "shell", "resource": "git status*", "effect": "allow" },
+        { "action": "shell", "resource": "git log*", "effect": "allow" },
+        { "action": "shell", "resource": "git diff*", "effect": "allow" },
+        { "action": "shell", "resource": "git show*", "effect": "allow" },
+        { "action": "shell", "resource": "git blame*", "effect": "allow" },
+        { "action": "shell", "resource": "git branch*", "effect": "allow" },
+        { "action": "shell", "resource": "git ls-files*", "effect": "allow" },
+        { "action": "shell", "resource": "uname*", "effect": "allow" },
+        { "action": "shell", "resource": "hostname", "effect": "allow" },
+        { "action": "shell", "resource": "whoami", "effect": "allow" },
+        { "action": "shell", "resource": "which *", "effect": "allow" },
+        { "action": "shell", "resource": "realpath *", "effect": "allow" },
+      ],
+    },
+  },
+  "permissions": [
+    { "action": "subagent", "resource": "*", "effect": "deny" },
+    { "action": "context7_*", "resource": "*", "effect": "deny" },
+    { "action": "gh_grep_*", "resource": "*", "effect": "deny" },
+    { "action": "webfetch", "resource": "*", "effect": "deny" },
+    { "action": "worktree_*", "resource": "*", "effect": "deny" },
+  ],
+  "mcp": {
+    "context7": { "type": "remote", "url": "https://mcp.context7.com/mcp", "enabled": true },
+    "gh_grep": { "type": "remote", "url": "https://mcp.grep.app", "enabled": true },
+  },
+  "instructions": ["./tools/philosophy.md", "./tools/workflows.md"],
+}
