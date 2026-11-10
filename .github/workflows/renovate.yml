@@ -14,9 +14,9 @@ name: Renovate
 # workflow, so behaviour and config stay identical across executors.
 
 on:
-  # Runs at 06:00 UTC.
+  # Runs weekly on Mondays at 06:00 UTC.
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "0 6 * * 1"
   workflow_dispatch:
 
 permissions:
