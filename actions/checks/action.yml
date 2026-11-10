@@ -1,0 +1,52 @@
+---
+# Composite action: repository checks (Ansible tooling, lint, syntax check). One
+# implementation shared by the GitHub-hosted CI workflow and the Forgejo
+# fallback path.
+#
+# The caller owns `actions/checkout` and all `timeout-minutes` values (composite
+# action steps do not support them).
+
+name: Repository checks
+description: Install Ansible tooling and run yamllint, ansible-lint and a syntax check.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install Ansible tooling
+      shell: bash
+      run: pip install ansible ansible-lint yamllint
+
+    # Roles come from git+https://github.com/... and collections from Galaxy;
+    # re-downloading them on every run risks hitting rate limits there.
+    # Cache them, keyed on requirements.yml, and skip re-fetching (no
+    # --force) whenever the cache already satisfies what's declared.
+    - name: Cache Galaxy roles and collections
+      uses: actions/cache@v4
+      with:
+        path: |
+          roles/galaxy
+          ~/.ansible/collections
+        key: galaxy-${{ hashFiles('requirements.yml') }}
+
+    - name: Install Galaxy roles and collections
+      shell: bash
+      run: |
+        ansible-galaxy role install -r requirements.yml -p roles/galaxy
+        ansible-galaxy collection install -r requirements.yml
+
+    - name: yamllint
+      shell: bash
+      run: yamllint .
+
+    - name: ansible-lint
+      shell: bash
+      run: ansible-lint setup.yml
+
+    - name: Dry-run (syntax check)
+      shell: bash
+      run: ansible-playbook -i examples/hosts setup.yml --syntax-check

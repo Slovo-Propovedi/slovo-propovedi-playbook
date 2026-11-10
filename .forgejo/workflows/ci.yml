@@ -1,6 +1,18 @@
 ---
 name: CI
 
+# Forgejo Actions provides the `github.*` context for GitHub Actions
+# compatibility. `workflow_run` is not supported by Forgejo Actions
+# (https://codeberg.org/forgejo/forgejo/issues/6494), so job ordering is
+# enforced with `needs:` inside this single workflow.
+#
+# Heavy checks run on GitHub-hosted runners via scripts/ci/github-dispatch.sh
+# (`remote`). When the dispatch cannot start a run (queue/infra timeout, exit
+# 42) the `local` job runs the same ./actions/checks composite on the Forgejo
+# runner. `gate` then posts the final `CI / lint` commit status. Automatic job
+# contexts are `CI / remote`, `CI / local` and `CI / gate`. A real remote
+# failure (exit 1) is NOT retried locally: it fails `gate`.
+
 on:
   push:
     branches: [main]
@@ -8,43 +20,146 @@ on:
     branches: [main]
 
 jobs:
-  lint:
+  remote:
+    runs-on: ubuntu-24.04
+
+    outputs:
+      fallback: ${{ steps.dispatch.outputs.fallback }}
+      superseded: ${{ steps.dispatch.outputs.superseded }}
+      run_url: ${{ steps.dispatch.outputs.run_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Dispatch checks to GitHub-hosted runners
+        id: dispatch
+        env:
+          # Classic PAT (repo + workflow scopes); may be switched to
+          # MIRROR_GITHUB_TOKEN if its scopes suffice.
+          GH_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+          # GitHub org has hyphens, Forgejo org has underscores.
+          GH_REPO: Slovo-Propovedi/slovo-propovedi-playbook
+          WORKFLOW: ci.yml
+          REF: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          # An unconfigured secret must not redden main: degrade to the local
+          # fallback instead of failing the dispatch.
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::CI_GITHUB_TOKEN is not configured — skipping GitHub dispatch, running locally"
+            echo "fallback=true" >> "$GITHUB_OUTPUT"
+            echo "run_url=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          set +e
+          OUTPUT=$(bash scripts/ci/github-dispatch.sh)
+          STATUS=$?
+          set -e
+
+          # Printed by the dispatcher on the 0/1/42/43 paths (see its header).
+          RUN_URL=$(printf '%s\n' "$OUTPUT" | sed -n 's/^GH_RUN_URL=//p' | tail -1)
+
+          case "$STATUS" in
+            0)
+              echo "fallback=false" >> "$GITHUB_OUTPUT"
+              ;;
+            42)
+              echo "fallback=true" >> "$GITHUB_OUTPUT"
+              echo "::warning::GitHub-hosted checks unavailable (queue/infra) — using the local fallback"
+              ;;
+            43)
+              echo "fallback=false" >> "$GITHUB_OUTPUT"
+              echo "superseded=true" >> "$GITHUB_OUTPUT"
+              echo "::warning::GitHub run was cancelled externally (superseded by a newer push) — reporting warning, not failure"
+              ;;
+            *)
+              echo "::error::GitHub-hosted checks failed (dispatch exit $STATUS)"
+              exit "$STATUS"
+              ;;
+          esac
+
+          echo "run_url=$RUN_URL" >> "$GITHUB_OUTPUT"
+
+  local:
+    needs: [remote]
+    if: always() && needs.remote.outputs.fallback == 'true'
     runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Run repository checks (local fallback)
+        uses: ./actions/checks
 
-      - name: Install Ansible tooling
-        run: pip install ansible ansible-lint yamllint
+  gate:
+    needs: [remote, local]
+    if: always()
+    runs-on: ubuntu-24.04
 
-      # Roles come from git+https://github.com/... and collections from Galaxy;
-      # re-downloading them on every run risks hitting rate limits there.
-      # Cache them, keyed on requirements.yml, and skip re-fetching (no
-      # --force) whenever the cache already satisfies what's declared.
-      - name: Cache Galaxy roles and collections
-        uses: actions/cache@v4
-        with:
-          path: |
-            roles/galaxy
-            ~/.ansible/collections
-          key: galaxy-${{ hashFiles('requirements.yml') }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - name: Install Galaxy roles and collections
+      - name: Post CI verdict
+        env:
+          # Automatic Forgejo Actions token; if the status POST 403s, replace
+          # with a repo secret holding a token with repo-write.
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REMOTE_RESULT: ${{ needs.remote.result }}
+          LOCAL_RESULT: ${{ needs.local.result }}
+          SUPERSEDED: ${{ needs.remote.outputs.superseded }}
+          RUN_URL: ${{ needs.remote.outputs.run_url }}
         run: |
-          ansible-galaxy role install -r requirements.yml -p roles/galaxy
-          ansible-galaxy collection install -r requirements.yml
+          status_emoji() {
+            case "$1" in
+              success) printf '✅' ;;
+              failure) printf '❌' ;;
+              cancelled) printf '🟨' ;;
+              warning) printf '⚠️' ;;
+              *) printf '⏭️' ;;
+            esac
+          }
 
-      - name: yamllint
-        run: yamllint .
+          # A superseded run must never redden the old commit: the newer push
+          # re-runs the checks and reports their result.
+          if [ "${SUPERSEDED:-}" = "true" ] && [ "$LOCAL_RESULT" != "success" ]; then
+            VERDICT=warning
+            DESCRIPTION="Superseded by a newer push — checks re-run on the newer commit"
+          elif [ "$LOCAL_RESULT" = "success" ]; then
+            VERDICT=success
+            DESCRIPTION="Local fallback (GitHub unavailable): checks passed"
+          elif [ "$LOCAL_RESULT" = "skipped" ] && [ "$REMOTE_RESULT" = "success" ]; then
+            VERDICT=success
+            DESCRIPTION="GitHub-hosted checks passed"
+          else
+            VERDICT=failure
+            DESCRIPTION="CI failed (remote: $REMOTE_RESULT, local: $LOCAL_RESULT)"
+          fi
 
-      - name: ansible-lint
-        run: ansible-lint setup.yml
+          # The dispatcher only emits a GitHub run URL on the 0/1/42/43 paths;
+          # point the status at this workflow run otherwise.
+          if [ -z "$RUN_URL" ]; then
+            RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi
 
-      - name: Dry-run (syntax check)
-        run: ansible-playbook -i examples/hosts setup.yml --syntax-check
+          bash scripts/ci/forgejo-set-status.sh \
+            "${{ github.sha }}" "$VERDICT" "CI / lint" "$RUN_URL" "$DESCRIPTION"
+
+          {
+            echo '## CI'
+            echo ''
+            echo '| Stage | Result |'
+            echo '|---|---|'
+            echo "| remote (GitHub-hosted) | $(status_emoji "$REMOTE_RESULT") $REMOTE_RESULT |"
+            echo "| local (Forgejo fallback) | $(status_emoji "$LOCAL_RESULT") $LOCAL_RESULT |"
+            echo "| verdict | $(status_emoji "$VERDICT") $VERDICT |"
+            if [ -n "$RUN_URL" ]; then
+              echo "| GitHub run | [$RUN_URL]($RUN_URL) |"
+            fi
+            if [ "${SUPERSEDED:-}" = "true" ]; then
+              echo ''
+              echo 'Superseded by a newer push — checks re-run on the newer commit.'
+            fi
+          } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
