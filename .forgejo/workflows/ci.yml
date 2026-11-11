@@ -38,6 +38,9 @@ jobs:
           # Classic PAT (repo + workflow scopes); may be switched to
           # MIRROR_GITHUB_TOKEN if its scopes suffice.
           GH_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+          # Automatic Forgejo token: posts the live `pending` CI status as soon
+          # as the GitHub run is discovered (best-effort).
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # GitHub org has hyphens, Forgejo org has underscores.
           GH_REPO: Slovo-Propovedi/slovo-propovedi-playbook
           WORKFLOW: ci.yml
@@ -53,12 +56,64 @@ jobs:
             exit 0
           fi
           set +e
-          OUTPUT=$(bash scripts/ci/github-dispatch.sh)
+          # stdout carries only the machine line `GH_RUN_URL=<url>`, printed
+          # before the long poll; stderr stays attached so run progress streams
+          # live into the job log.
+          DISPATCH_OUT=$(mktemp)
+          bash scripts/ci/github-dispatch.sh > "$DISPATCH_OUT" &
+          DISPATCH_PID=$!
+
+          pending_posted=false
+          announce_run() {
+            # Forgejo masks org-variable values inside URLs, which breaks the
+            # markdown href; percent-encoded dashes decode to the same URL but
+            # no longer contain the masked literal. The link text stays the raw
+            # run id.
+            local summary_url="${RUN_URL//-/%2D}"
+            {
+              echo '## CI dispatched to GitHub-hosted runners'
+              echo "- Run: [${RUN_URL##*/}]($summary_url) — статус и логи в GitHub Actions"
+            } >> "${GITHUB_STEP_SUMMARY:-/dev/null}" || true
+            # A job summary is rendered only after the job completes, so the
+            # run is also announced as a pending commit status: it shows up on
+            # the commit page immediately, and the gate overwrites it with the
+            # final verdict later.
+            if [ "$pending_posted" != "true" ]; then
+              pending_posted=true
+              bash scripts/ci/forgejo-set-status.sh "${{ github.sha }}" pending "CI / lint" "$RUN_URL" \
+                "Checks running on GitHub-hosted runners" \
+                || echo "note: pending CI status was not posted (best-effort)"
+            fi
+          }
+
+          # Publish the run link (and the pending status) as soon as the
+          # dispatcher discovers the run: the step returns only after the poll
+          # (up to RUN_TIMEOUT_MIN), so doing this at the end would be too late.
+          RUN_URL=""
+          for _ in $(seq 1 150); do
+            RUN_URL=$(sed -n 's/^GH_RUN_URL=//p' "$DISPATCH_OUT" | tail -1)
+            if [ -n "$RUN_URL" ]; then
+              announce_run
+              break
+            fi
+            kill -0 "$DISPATCH_PID" 2>/dev/null || break
+            sleep 2
+          done
+
+          wait "$DISPATCH_PID"
           STATUS=$?
-          set -e
+          OUTPUT=$(cat "$DISPATCH_OUT")
+          rm -f "$DISPATCH_OUT"
 
           # Printed by the dispatcher on the 0/1/42/43 paths (see its header).
-          RUN_URL=$(printf '%s\n' "$OUTPUT" | sed -n 's/^GH_RUN_URL=//p' | tail -1)
+          # Covers a run discovered after the early-summary window (slow mirror).
+          if [ -z "$RUN_URL" ]; then
+            RUN_URL=$(printf '%s\n' "$OUTPUT" | sed -n 's/^GH_RUN_URL=//p' | tail -1)
+            if [ -n "$RUN_URL" ]; then
+              announce_run
+            fi
+          fi
+          set -e
 
           case "$STATUS" in
             0)
@@ -139,7 +194,10 @@ jobs:
           fi
 
           # The dispatcher only emits a GitHub run URL on the 0/1/42/43 paths;
-          # point the status at this workflow run otherwise.
+          # point the status at this workflow run otherwise. Keep the raw
+          # dispatch URL separately: its absence means the remote never ran, and
+          # the summary row must not pretend the Forgejo URL is a GitHub run.
+          GH_RUN_URL="${RUN_URL:-}"
           if [ -z "$RUN_URL" ]; then
             RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           fi
@@ -155,8 +213,10 @@ jobs:
             echo "| remote (GitHub-hosted) | $(status_emoji "$REMOTE_RESULT") $REMOTE_RESULT |"
             echo "| local (Forgejo fallback) | $(status_emoji "$LOCAL_RESULT") $LOCAL_RESULT |"
             echo "| verdict | $(status_emoji "$VERDICT") $VERDICT |"
-            if [ -n "$RUN_URL" ]; then
-              echo "| GitHub run | [$RUN_URL]($RUN_URL) |"
+            if [ -n "$GH_RUN_URL" ]; then
+              echo "| GitHub run | [${GH_RUN_URL##*/}](${GH_RUN_URL//-/%2D}) |"
+            else
+              echo '| GitHub run | — |'
             fi
             if [ "${SUPERSEDED:-}" = "true" ]; then
               echo ''
