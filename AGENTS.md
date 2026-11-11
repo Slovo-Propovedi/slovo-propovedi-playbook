@@ -14,6 +14,12 @@ just dry-run        # ansible-playbook --syntax-check
 just check          # lint + syntax check
 ```
 
+**Centralized verification:** full runs are NEVER part of an implementation task and NEVER run in parallel with each other. Agents working on delegated tasks must NOT run project-wide checks on their own (`just lint`, `just dry-run`). During implementation an agent runs only targeted, file-scoped checks: `yamllint` over the files it edited, `ansible-lint` on the edited playbook, and an `ansible-playbook --syntax-check` run against the edited playbook.
+
+The full verification pass runs ONCE as a SEPARATE dedicated task, AFTER all implementation tasks are finished: the orchestrator delegates it as a single task and routes any failures back to the responsible agent. Full runs are never executed concurrently — two concurrent full runs hang the machine (laptop freeze). This holds in single-agent and multi-agent sessions alike.
+
+Verification-first Mode B checks on changed files are file-scoped by nature and stay part of implementation: `just lint` and `just dry-run` are only the repo-wide forms of those same checks, and the repo-wide forms run once in the final dedicated task.
+
 ## Mandatory Workflows: SDD, Plan-Implement, TDD
 
 Every non-trivial task runs through a workflow BEFORE implementation. Workflow skills live in `.opencode/skills/<name>/SKILL.md` with a byte-identical mirror in `.claude/skills/` (keep both copies in sync). Spec-driven commands live in `.opencode/commands/speckit.*.md` (mirrored in `.claude/commands/`).
